@@ -3,6 +3,7 @@ package golog
 import (
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -10,40 +11,53 @@ import (
 func TestBufferedFileWriter(t *testing.T) {
 	oldBufferSize := bufferSize
 	bufferSize = 1024
-	path := "/tmp/test.log"
+	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
 	w, err := NewBufferdFileWriter(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
-	info, err := f.Stat()
+	stat, err := f.Stat()
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
-	if info.Size() != 0 {
-		t.Error()
+	if stat.Size() != 0 {
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	n, err := w.Write([]byte("test"))
-	if err != nil || n != 4 {
-		t.Error()
+	if err != nil {
+		t.Error(err)
+	}
+	if n != 4 {
+		t.Errorf("read %d bytes", n)
 	}
 
 	buf := make([]byte, bufferSize*2)
 	n, err = f.Read(buf)
-	if err != io.EOF || n != 0 {
-		t.Error()
+	if err != io.EOF {
+		t.Error(err)
+	}
+	if n != 0 {
+		t.Errorf("read %d bytes", n)
 	}
 
 	time.Sleep(flushDuration * 2)
 	n, err = f.Read(buf)
-	if err != nil || n != 4 || string(buf[:4]) != "test" {
-		t.Error()
+	if err != nil {
+		t.Error(err)
+	}
+	if n != 4 {
+		t.Errorf("read %d bytes", n)
+	}
+	bs := string(buf[:4])
+	if bs != "test" {
+		t.Error("read bytes are " + bs)
 	}
 
 	for i := 0; i < bufferSize; i++ {
@@ -51,14 +65,32 @@ func TestBufferedFileWriter(t *testing.T) {
 	}
 	w.Write([]byte{'2'}) // writes over bufferSize cause flushing
 	n, err = f.Read(buf)
-	if err != nil || n != bufferSize || buf[bufferSize-1] != '1' || buf[bufferSize] != 0 {
-		t.Error()
+	if err != nil {
+		t.Error(err)
+	}
+	if n != bufferSize {
+		t.Errorf("read %d bytes", n)
+	}
+	if buf[bufferSize-1] != '1' {
+		t.Errorf("last byte is %d", buf[bufferSize-1])
+	}
+	if buf[bufferSize] != 0 {
+		t.Errorf("next byte is %d", buf[bufferSize-1])
 	}
 
 	time.Sleep(flushDuration * 2)
 	n, err = f.Read(buf)
-	if err != nil || n != 1 || buf[0] != '2' || buf[1] != '1' {
-		t.Error()
+	if err != nil {
+		t.Error(err)
+	}
+	if n != 1 {
+		t.Errorf("read %d bytes", n)
+	}
+	if buf[0] != '2' {
+		t.Errorf("first byte is %d", buf[0])
+	}
+	if buf[1] != '1' {
+		t.Errorf("next byte is %d", buf[1])
 	}
 
 	f.Close()
@@ -67,29 +99,29 @@ func TestBufferedFileWriter(t *testing.T) {
 }
 
 func TestRotatingFileWriter(t *testing.T) {
-	dir := "/tmp/test/"
-	path := dir + "test.log"
+	dir := filepath.Join(os.TempDir(), "test")
+	path := filepath.Join(dir, "test.log")
 	err := os.RemoveAll(dir)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	err = os.Mkdir(dir, 0755)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 
 	w, err := NewRotatingFileWriter(path, 128, 2)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	} else {
 		defer w.Close()
 	}
 	stat, err := os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	bs := []byte("0123456789")
@@ -99,32 +131,32 @@ func TestRotatingFileWriter(t *testing.T) {
 
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	stat, err = os.Stat(path + ".1")
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 120 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	_, err = os.Stat(path + ".2")
 	if !os.IsNotExist(err) {
-		t.Error()
+		t.Error(err)
 	}
 
 	time.Sleep(flushDuration * 2)
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 80 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	// second write
@@ -134,45 +166,45 @@ func TestRotatingFileWriter(t *testing.T) {
 
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	stat, err = os.Stat(path + ".1")
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 120 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	stat, err = os.Stat(path + ".2")
 	if stat.Size() != 120 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	time.Sleep(flushDuration * 2)
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 40 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 }
 
 func TestTimedRotatingFileWriterByDate(t *testing.T) {
-	dir := "/tmp/test/"
-	pathPrefix := dir + "test"
+	dir := filepath.Join(os.TempDir(), "test")
+	pathPrefix := filepath.Join(dir, "test")
 	err := os.RemoveAll(dir)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	err = os.Mkdir(dir, 0755)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
@@ -187,44 +219,44 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 
 	w, err := NewTimedRotatingFileWriter(pathPrefix, RotateByDate, 2)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	path := pathPrefix + "-20181119.log"
 	stat, err := os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	w.Write([]byte("123"))
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	tm = time.Date(2018, 11, 20, 16, 12, 34, 56, time.Local)
 	time.Sleep(flushDuration * 2)
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 3 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	time.Sleep(flushDuration * 2)
 	path = pathPrefix + "-20181120.log"
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	w.Write([]byte("4567"))
@@ -232,31 +264,31 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 4 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 	stat, err = os.Stat(pathPrefix + "-20181121.log")
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	tm = time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local)
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(pathPrefix + "-20181122.log")
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 	_, err = os.Stat(pathPrefix + "-20181119.log")
 	if !os.IsNotExist(err) {
-		t.Error()
+		t.Error(err)
 	}
 
 	w.Close()
@@ -265,15 +297,15 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 }
 
 func TestTimedRotatingFileWriterByHour(t *testing.T) {
-	dir := "/tmp/test/"
-	pathPrefix := dir + "test"
+	dir := filepath.Join(os.TempDir(), "test")
+	pathPrefix := filepath.Join(dir, "test")
 	err := os.RemoveAll(dir)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	err = os.Mkdir(dir, 0755)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
@@ -288,7 +320,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 
 	w, err := NewTimedRotatingFileWriter(pathPrefix, RotateByHour, 2)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	path := pathPrefix + "-2018111916.log"
 	stat, err := os.Stat(path)
@@ -296,36 +328,36 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	w.Write([]byte("123"))
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	tm = time.Date(2018, 11, 19, 17, 12, 34, 56, time.Local)
 	time.Sleep(flushDuration * 2)
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 3 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	time.Sleep(flushDuration * 2)
 	path = pathPrefix + "-2018111917.log"
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	w.Write([]byte("4567"))
@@ -333,31 +365,31 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(path)
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 4 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 	stat, err = os.Stat(pathPrefix + "-2018111918.log")
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
 	tm = time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local)
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(pathPrefix + "-2018112216.log")
 	if err != nil {
-		t.Error()
+		t.Error(err)
 	}
 	if stat.Size() != 0 {
-		t.Error()
+		t.Errorf("file size are %d bytes", stat.Size())
 	}
 	_, err = os.Stat(pathPrefix + "-2018111916.log")
 	if !os.IsNotExist(err) {
-		t.Error()
+		t.Error(err)
 	}
 
 	w.Close()

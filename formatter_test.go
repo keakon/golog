@@ -2,89 +2,88 @@ package golog
 
 import (
 	"bytes"
-	"fmt"
+	"reflect"
 	"testing"
 	"time"
 )
 
 func TestParseFormat(t *testing.T) {
-	fmt.Println("")
 	if len(DefaultFormatter.formatParts) != 11 {
-		t.Error()
+		t.Errorf("formatParts are %d", len(DefaultFormatter.formatParts))
 	}
 
 	part0, ok := DefaultFormatter.formatParts[0].(*ByteFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part0 is " + reflect.TypeOf(DefaultFormatter.formatParts[0]).String())
 	}
 	if part0.Byte != '[' {
-		t.Error()
+		t.Errorf("Byte of part0 is %d", part0.Byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[1].(*LevelFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part1 is " + reflect.TypeOf(DefaultFormatter.formatParts[1]).String())
 	}
 
 	part2, ok := DefaultFormatter.formatParts[2].(*ByteFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part2 is " + reflect.TypeOf(DefaultFormatter.formatParts[2]).String())
 	}
 	if part2.Byte != ' ' {
-		t.Error()
+		t.Errorf("Byte of part2 is %d", part2.Byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[3].(*DateFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part3 is " + reflect.TypeOf(DefaultFormatter.formatParts[3]).String())
 	}
 
 	part4, ok := DefaultFormatter.formatParts[4].(*ByteFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part4 is " + reflect.TypeOf(DefaultFormatter.formatParts[4]).String())
 	}
 	if part4.Byte != ' ' {
-		t.Error()
+		t.Errorf("Byte of part4 is %d", part4.Byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[5].(*TimeFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part5 is " + reflect.TypeOf(DefaultFormatter.formatParts[5]).String())
 	}
 
 	part6, ok := DefaultFormatter.formatParts[6].(*ByteFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part6 is " + reflect.TypeOf(DefaultFormatter.formatParts[6]).String())
 	}
 	if part6.Byte != ' ' {
-		t.Error()
+		t.Errorf("Byte of part6 is %d", part6.Byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[7].(*SourceFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part7 is " + reflect.TypeOf(DefaultFormatter.formatParts[7]).String())
 	}
 
 	part8, ok := DefaultFormatter.formatParts[8].(*BytesFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part8 is " + reflect.TypeOf(DefaultFormatter.formatParts[8]).String())
 	}
 	bs := part8.Bytes
 	if len(bs) != 2 || bs[0] != ']' || bs[1] != ' ' {
-		t.Error()
+		t.Errorf("Bytes of part8 is " + string(part8.Bytes))
 	}
 
 	_, ok = DefaultFormatter.formatParts[9].(*MessageFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part9 is " + reflect.TypeOf(DefaultFormatter.formatParts[9]).String())
 	}
 
 	part10, ok := DefaultFormatter.formatParts[10].(*ByteFormatPart)
 	if !ok {
-		t.Error()
+		t.Errorf("part10 is " + reflect.TypeOf(DefaultFormatter.formatParts[10]).String())
 	}
 	if part10.Byte != '\n' {
-		t.Error()
+		t.Errorf("Byte of part6 is %d", part6.Byte)
 	}
 }
 
