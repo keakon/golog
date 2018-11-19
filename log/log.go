@@ -1,8 +1,9 @@
 package log
 
 import (
-	"golog"
 	"runtime"
+
+	"github.com/keakon/golog"
 )
 
 var defaultLogger *golog.Logger
