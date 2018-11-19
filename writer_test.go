@@ -13,7 +13,7 @@ func TestBufferedFileWriter(t *testing.T) {
 	bufferSize = 1024
 	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
-	w, err := NewBufferdFileWriter(path)
+	w, err := NewBufferedFileWriter(path)
 	if err != nil {
 		t.Error(err)
 	}

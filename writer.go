@@ -64,7 +64,7 @@ type BufferedFileWriter struct {
 	stopChan   chan struct{}
 }
 
-func NewBufferdFileWriter(path string) (*BufferedFileWriter, error) {
+func NewBufferedFileWriter(path string) (*BufferedFileWriter, error) {
 	f, err := os.OpenFile(path, fileFlag, fileMode)
 	if err != nil {
 		return nil, err
