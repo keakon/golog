@@ -6,20 +6,21 @@ import (
 	"path/filepath"
 )
 
+var unknownFile = []byte("???")
+
 var (
-	unknownFile = []byte("???")
 	// DefaultFormatter is the default formatter
 	DefaultFormatter = ParseFormat("[%l %D %T %s] %m")
 	// TimedRotatingFormatter is a formatter for TimedRotatingFileWriter
 	TimedRotatingFormatter = ParseFormat("[%l %T %s] %m")
 )
 
-// A Formatter contains a sequence of FormatParts.
+// A Formatter containing a sequence of FormatParts.
 type Formatter struct {
 	formatParts []FormatPart
 }
 
-// ParseFormat parses a format string to a formatter.
+// ParseFormat parses a format string into a formatter.
 func ParseFormat(format string) (formatter *Formatter) {
 	if format == "" {
 		return
@@ -30,14 +31,16 @@ func ParseFormat(format string) (formatter *Formatter) {
 	return
 }
 
-// Format formats a record to a bytes.Buffer.
-// Supported format verbs:
-// %%: %
-// %l: short name of the level
-// %T: time format (HH:MM:SS)
-// %D: date format (YYYY-mm-DD)
-// %s: source code format (filename:line)
-// %S: full source code format (/path/filename.go:line)
+/*
+Format formats a record to a bytes.Buffer.
+Supported format verbs:
+	%%: %
+	%l: short name of the level
+	%T: time string (HH:MM:SS)
+	%D: date string (YYYY-mm-DD)
+	%s: source code string (filename:line)
+	%S: full source code string (/path/filename.go:line)
+*/
 func (f *Formatter) Format(r *Record, buf *bytes.Buffer) {
 	for _, part := range f.formatParts {
 		part.Format(r, buf)
@@ -86,12 +89,12 @@ func (f *Formatter) findParts(format []byte) {
 	return
 }
 
-// FormatPart is an interface contains the Format() method.
+// FormatPart is an interface containing the Format() method.
 type FormatPart interface {
 	Format(r *Record, buf *bytes.Buffer)
 }
 
-// ByteFormatPart is a FormatPart contains a byte.
+// ByteFormatPart is a FormatPart containing a byte.
 type ByteFormatPart struct {
 	byte byte
 }
@@ -128,12 +131,12 @@ func (f *Formatter) appendByte(b byte) {
 	}
 }
 
-// BytesFormatPart is a FormatPart contains a byte slice.
+// BytesFormatPart is a FormatPart containing a byte slice.
 type BytesFormatPart struct {
 	bytes []byte
 }
 
-// Format writes its byte to the buf.
+// Format writes its bytes to the buf.
 func (p *BytesFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	buf.Write(p.bytes)
 }
@@ -176,7 +179,7 @@ func (p *LevelFormatPart) Format(r *Record, buf *bytes.Buffer) {
 // TimeFormatPart is a FormatPart of the time placeholder.
 type TimeFormatPart struct{}
 
-// Format writes the time of the record to the buf.
+// Format writes the time string of the record to the buf.
 func (p *TimeFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	hour, min, sec := r.time.Clock()
 	buf.Write(uint2Bytes2(hour))
@@ -189,7 +192,7 @@ func (p *TimeFormatPart) Format(r *Record, buf *bytes.Buffer) {
 // DateFormatPart is a FormatPart of the date placeholder.
 type DateFormatPart struct{}
 
-// Format writes the date of the record to the buf.
+// Format writes the date string of the record to the buf.
 func (p *DateFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	year, mon, day := r.time.Date()
 	buf.Write(uint2Bytes4(year))
@@ -236,7 +239,7 @@ func (p *FullSourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 // MessageFormatPart is a FormatPart of the message placeholder.
 type MessageFormatPart struct{}
 
-// Format writes the formatted message and args to the buf.
+// Format writes the formatted message with args to the buf.
 func (p *MessageFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	msg := ""
 	if len(r.args) > 0 {

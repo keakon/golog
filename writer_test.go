@@ -179,6 +179,9 @@ func TestRotatingFileWriter(t *testing.T) {
 	}
 
 	stat, err = os.Stat(path + ".2")
+	if err != nil {
+		t.Error(err)
+	}
 	if stat.Size() != 120 {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}

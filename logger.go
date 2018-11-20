@@ -24,7 +24,7 @@ var (
 	internalLogger *Logger
 )
 
-// A Record is an item which contains enough context for the logger.
+// A Record is an item which contains required context for the logger.
 type Record struct {
 	level   Level
 	time    time.Time
@@ -40,7 +40,8 @@ type Logger struct {
 	handlers []*Handler
 }
 
-// NewLogger creates a new Logger.
+// NewLogger creates a new Logger of the given level.
+// Messages with the lower level than the logger will be ignored.
 func NewLogger(lv Level) *Logger {
 	return &Logger{level: lv}
 }
@@ -79,61 +80,61 @@ func (l *Logger) Close() {
 	l.handlers = nil
 }
 
-// Debug logs a debug level message. It use fmt.Sprint() to format args.
+// Debug logs a debug level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Debug(args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1) // deeper caller will be more expensive
 	l.Log(DebugLevel, file, line, "", args...)
 }
 
-// Debugf logs a debug level message. It use fmt.Sprintf() to format msg and args.
+// Debugf logs a debug level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Debugf(msg string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(DebugLevel, file, line, msg, args...)
 }
 
-// Info logs a info level message. It use fmt.Sprint() to format args.
+// Info logs a info level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Info(args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(InfoLevel, file, line, "", args...)
 }
 
-// Infof logs a info level message. It use fmt.Sprintf() to format msg and args.
+// Infof logs a info level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Infof(msg string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(InfoLevel, file, line, msg, args...)
 }
 
-// Warn logs a warning level message. It use fmt.Sprint() to format args.
+// Warn logs a warning level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Warn(args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(WarnLevel, file, line, "", args...)
 }
 
-// Warnf logs a warning level message. It use fmt.Sprintf() to format msg and args.
+// Warnf logs a warning level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Warnf(msg string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(WarnLevel, file, line, msg, args...)
 }
 
-// Error logs an error level message. It use fmt.Sprint() to format args.
+// Error logs an error level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Error(args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(ErrorLevel, file, line, "", args...)
 }
 
-// Errorf logs a error level message. It use fmt.Sprintf() to format msg and args.
+// Errorf logs a error level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Errorf(msg string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(ErrorLevel, file, line, msg, args...)
 }
 
-// Crit logs a critical level message. It use fmt.Sprint() to format args.
+// Crit logs a critical level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Crit(args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(CritLevel, file, line, "", args...)
 }
 
-// Critf logs a critical level message. It use fmt.Sprintf() to format msg and args.
+// Critf logs a critical level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Critf(msg string, args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(CritLevel, file, line, msg, args...)

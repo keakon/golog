@@ -12,7 +12,8 @@ type Handler struct {
 	writers   []io.WriteCloser
 }
 
-// NewHandler creates a new Handler.
+// NewHandler creates a new Handler of the given level with the formatter.
+// Records with the lower level than the handler will be ignored.
 func NewHandler(level Level, formatter *Formatter) *Handler {
 	return &Handler{
 		level:     level,
@@ -25,7 +26,7 @@ func (h *Handler) AddWriter(w io.WriteCloser) {
 	h.writers = append(h.writers, w)
 }
 
-// Handle processes a record, formats it using the formatter, then writes to all the writers.
+// Handle formats a record using its formatter, then writes the formatted result to all of its writers.
 func (h *Handler) Handle(r *Record) {
 	if r.level >= h.level {
 		buf := bufPool.Get().(*bytes.Buffer)

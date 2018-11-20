@@ -1,4 +1,7 @@
-# golog [![Build Status](https://www.travis-ci.org/keakon/golog.svg?branch=master)](https://www.travis-ci.org/keakon/golog)
+# golog
+[![GoDoc](https://godoc.org/github.com/keakon/golog?status.svg)](https://godoc.org/github.com/keakon/golog)
+[![Build Status](https://www.travis-ci.org/keakon/golog.svg?branch=master)](https://www.travis-ci.org/keakon/golog)
+[![Go Report Card](https://goreportcard.com/badge/github.com/keakon/golog)](https://goreportcard.com/report/github.com/keakon/golog)
 
 ## Features
 

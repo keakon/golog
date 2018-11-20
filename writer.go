@@ -16,13 +16,15 @@ const (
 	fileMode      = 0644
 	flushDuration = time.Millisecond * 100
 
+	rotateByDateFormat = "-20060102.log"   // -YYYYmmdd.log
+	rotateByHourFormat = "-2006010215.log" // -YYYYmmddHH.log
+)
+
+const (
 	// RotateByDate set the log file to be rotated each day.
 	RotateByDate RotateDuration = iota
 	// RotateByHour set the log file to be rotated each hour.
 	RotateByHour
-
-	rotateByDateFormat = "-20060102.log"   // -YYYYmmdd.log
-	rotateByHourFormat = "-2006010215.log" // -YYYYmmddHH.log
 )
 
 var bufferSize = 1024 * 1024 * 4
@@ -53,7 +55,7 @@ func NewStderrWriter() *ConsoleWriter {
 	return NewConsoleWriter(os.Stderr)
 }
 
-// Close closes a ConsoleWriter, it shouldn't be called twice.
+// Close sets its File to nil.
 func (w *ConsoleWriter) Close() error {
 	w.File = nil
 	return nil
@@ -65,8 +67,8 @@ func NewFileWriter(path string) (*os.File, error) {
 }
 
 // A BufferedFileWriter is a buffered file writer.
-// The written bytes will be flush to the log file every 0.1 second,
-// or reach the buffer capacity (4MB).
+// The written bytes will be flushed to the log file every 0.1 second,
+// or when reaching the buffer capacity (4 MB).
 type BufferedFileWriter struct {
 	writer     *os.File
 	buffer     *bufio.Writer
@@ -125,7 +127,7 @@ func (w *BufferedFileWriter) schedule() {
 	}
 }
 
-// Write writes bytes to the buffer.
+// Write writes a byte slice to the buffer.
 func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	w.locker.Lock()
 	n, err = w.buffer.Write(p)
@@ -208,7 +210,7 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*Rot
 	return &w, nil
 }
 
-// Write writes bytes to the buffer and rotate if reaches its maxSize.
+// Write writes a byte slice to the buffer and rotates if reaching its maxSize.
 func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 	length := uint64(len(p))
 	w.locker.Lock()
