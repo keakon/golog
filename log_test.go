@@ -2,6 +2,7 @@ package golog
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -74,7 +75,7 @@ func TestLogger(t *testing.T) {
 	if len(parts[2]) != 8 {
 		t.Errorf("parts[2] is " + parts[2])
 	}
-	if !strings.HasPrefix(parts[3], "log_test.go:") {
+	if !strings.HasPrefix(parts[3], "log_test:") {
 		t.Errorf("parts[3] is " + parts[3])
 	}
 	if parts[4] != "test" {
@@ -121,8 +122,19 @@ func BenchmarkBufferedFileLogger(b *testing.B) {
 	l.Close()
 }
 
+type discardWriter struct {
+	io.Writer
+}
+
+func (w *discardWriter) Close() error {
+	w.Writer = nil
+	return nil
+}
+
 func BenchmarkDiscardLogger(b *testing.B) {
-	w := NewDiscardWriter()
+	w := &discardWriter{
+		Writer: ioutil.Discard,
+	}
 	h := NewHandler(InfoLevel, DefaultFormatter)
 	h.AddWriter(w)
 	l := Logger{}

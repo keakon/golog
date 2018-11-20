@@ -10,6 +10,12 @@
 6. No 3rd party dependancy
 7. Fast
 
+## Installation
+
+```
+go get -u github.com/keakon/golog
+```
+
 ## Benchmarks
 
 ```
@@ -19,5 +25,5 @@ BenchmarkDiscardLogger-8        	 5000000	       257 ns/op	       0 B/op	       
 
 Example output:
 ```
-[I 2018-11-20 17:05:37 log_test.go:118] test
+[I 2018-11-20 17:05:37 log_test:118] test
 ```

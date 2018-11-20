@@ -5,12 +5,14 @@ import (
 	"io"
 )
 
+// A Handler is a level log handler with a formatter and several writers.
 type Handler struct {
 	level     Level
 	formatter *Formatter
 	writers   []io.WriteCloser
 }
 
+// NewHandler creates a new Handler.
 func NewHandler(level Level, formatter *Formatter) *Handler {
 	return &Handler{
 		level:     level,
@@ -18,10 +20,12 @@ func NewHandler(level Level, formatter *Formatter) *Handler {
 	}
 }
 
+// AddWriter adds a writer to the Handler.
 func (h *Handler) AddWriter(w io.WriteCloser) {
 	h.writers = append(h.writers, w)
 }
 
+// Handle processes a record, formats it using the formatter, then writes to all the writers.
 func (h *Handler) Handle(r *Record) {
 	if r.level >= h.level {
 		buf := bufPool.Get().(*bytes.Buffer)
@@ -38,6 +42,7 @@ func (h *Handler) Handle(r *Record) {
 	}
 }
 
+// Close closes all its writers, it shouldn't be called twice.
 func (h *Handler) Close() {
 	for _, w := range h.writers {
 		err := w.Close()

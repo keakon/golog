@@ -169,7 +169,7 @@ func TestSourceFormatPart(t *testing.T) {
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()
-	if bs != "test.go:10" {
+	if bs != "test:10" {
 		t.Error()
 	}
 }
