@@ -36,6 +36,10 @@ type Logger struct {
 	handlers []*Handler
 }
 
+func NewLogger(lv Level) *Logger {
+	return &Logger{level: lv}
+}
+
 func (l *Logger) AddHandler(h *Handler) {
 	l.handlers = append(l.handlers, h)
 }
