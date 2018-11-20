@@ -113,8 +113,6 @@ func TestRotatingFileWriter(t *testing.T) {
 	w, err := NewRotatingFileWriter(path, 128, 2)
 	if err != nil {
 		t.Error(err)
-	} else {
-		defer w.Close()
 	}
 	stat, err := os.Stat(path)
 	if err != nil {
@@ -193,6 +191,8 @@ func TestRotatingFileWriter(t *testing.T) {
 	if stat.Size() != 40 {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}
+
+	w.Close()
 }
 
 func TestTimedRotatingFileWriterByDate(t *testing.T) {

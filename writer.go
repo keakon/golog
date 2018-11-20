@@ -114,8 +114,11 @@ func (w *BufferedFileWriter) schedule() {
 		select {
 		case <-timer.C:
 			locker.Lock()
-			w.updated = false
-			err := bw.Flush()
+			var err error
+			if w.writer != nil { // not closed
+				w.updated = false
+				err = bw.Flush()
+			}
 			locker.Unlock()
 			if err != nil {
 				logError(err)
@@ -242,7 +245,11 @@ func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (w *RotatingFileWriter) rotate() error { // should be called within lock
+func (w *RotatingFileWriter) rotate() error { // should be called within a lock
+	if w.writer == nil { // was closed
+		return os.ErrClosed
+	}
+
 	err := w.buffer.Flush()
 	if err != nil {
 		return err
@@ -372,8 +379,11 @@ func (w *TimedRotatingFileWriter) schedule() {
 			select {
 			case <-flushTimer.C:
 				locker.Lock()
-				w.updated = false
-				err := bw.Flush()
+				var err error
+				if w.writer != nil { // not closed
+					w.updated = false
+					err = bw.Flush()
+				}
 				locker.Unlock()
 				if err != nil {
 					logError(err)
@@ -395,6 +405,11 @@ func (w *TimedRotatingFileWriter) schedule() {
 
 func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 	w.locker.Lock()
+	if w.writer == nil { // was closed
+		w.locker.Unlock()
+		return os.ErrClosed
+	}
+
 	err := w.buffer.Flush()
 	if err != nil {
 		w.locker.Unlock()
