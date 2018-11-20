@@ -8,14 +8,27 @@ go:
   - "1.11.x"
 cache:
   directories:
-    - ${TRAVIS_HOME}/gopath
+    - ${TRAVIS_HOME}/gopath/bin
+    - ${TRAVIS_HOME}/gopath/src/golang.org
 matrix:
   include:
     - os: linux
+      go: "1.10.x"
+      cache:
+        directories:
+          - $HOME/.cache/go-build
+    - os: linux
+      go: "1.11.x"
       cache:
         directories:
           - $HOME/.cache/go-build
     - os: osx
+      go: "1.10.x"
+      cache:
+        directories:
+          - $HOME/Library/Caches/go-build
+    - os: osx
+      go: "1.11.x"
       cache:
         directories:
           - $HOME/Library/Caches/go-build

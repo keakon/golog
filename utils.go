@@ -137,8 +137,10 @@ func stopTimer(timer *time.Timer) {
 }
 
 func logError(err error) {
-	_, file, line, _ := runtime.Caller(1)
-	internalLogger.Log(ErrorLevel, file, line, err.Error())
+	if internalLogger != nil {
+		_, file, line, _ := runtime.Caller(1)
+		internalLogger.Log(ErrorLevel, file, line, err.Error())
+	}
 }
 
 func setNowFunc(nowFunc func() time.Time) {
