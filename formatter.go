@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"strconv"
 )
 
 var (
@@ -79,64 +78,64 @@ type FormatPart interface {
 }
 
 type ByteFormatPart struct {
-	Byte byte
+	byte byte
 }
 
 func (p *ByteFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	buf.WriteByte(p.Byte)
+	buf.WriteByte(p.byte)
 }
 
 func (f *Formatter) appendByte(b byte) {
 	parts := f.formatParts
 	count := len(parts)
 	if count == 0 {
-		f.formatParts = append(parts, &ByteFormatPart{Byte: b})
+		f.formatParts = append(parts, &ByteFormatPart{byte: b})
 	} else {
 		var p FormatPart
 		lastPart := parts[count-1]
 		switch lp := lastPart.(type) {
 		case *ByteFormatPart:
 			p = &BytesFormatPart{
-				Bytes: []byte{lp.Byte, b},
+				bytes: []byte{lp.byte, b},
 			}
 		case *BytesFormatPart:
 			p = &BytesFormatPart{
-				Bytes: append(lp.Bytes, b),
+				bytes: append(lp.bytes, b),
 			}
 		default:
-			p = &ByteFormatPart{Byte: b}
+			p = &ByteFormatPart{byte: b}
 		}
 		f.formatParts = append(parts, p)
 	}
 }
 
 type BytesFormatPart struct {
-	Bytes []byte
+	bytes []byte
 }
 
 func (p *BytesFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	buf.Write(p.Bytes)
+	buf.Write(p.bytes)
 }
 
 func (f *Formatter) appendBytes(bs []byte) {
 	parts := f.formatParts
 	count := len(parts)
 	if count == 0 {
-		f.formatParts = append(parts, &BytesFormatPart{Bytes: bs})
+		f.formatParts = append(parts, &BytesFormatPart{bytes: bs})
 	} else {
 		var p FormatPart
 		lastPart := parts[count-1]
 		switch lp := lastPart.(type) {
 		case *ByteFormatPart:
 			p = &BytesFormatPart{
-				Bytes: append([]byte{lp.Byte}, bs...),
+				bytes: append([]byte{lp.byte}, bs...),
 			}
 		case *BytesFormatPart:
 			p = &BytesFormatPart{
-				Bytes: append(lp.Bytes, bs...),
+				bytes: append(lp.bytes, bs...),
 			}
 		default:
-			p = &BytesFormatPart{Bytes: bs}
+			p = &BytesFormatPart{bytes: bs}
 		}
 		f.formatParts = append(parts, p)
 	}
@@ -145,38 +144,38 @@ func (f *Formatter) appendBytes(bs []byte) {
 type LevelFormatPart struct{}
 
 func (p *LevelFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	buf.WriteByte(levelNames[int(r.Level)])
+	buf.WriteByte(levelNames[int(r.level)])
 }
 
 type TimeFormatPart struct{}
 
 func (p *TimeFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	hour, min, sec := r.Time.Clock()
-	buf.Write(uint2Bytes2(uint(hour)))
+	hour, min, sec := r.time.Clock()
+	buf.Write(uint2Bytes2(hour))
 	buf.WriteByte(':')
-	buf.Write(uint2Bytes2(uint(min)))
+	buf.Write(uint2Bytes2(min))
 	buf.WriteByte(':')
-	buf.Write(uint2Bytes2(uint(sec)))
+	buf.Write(uint2Bytes2(sec))
 }
 
 type DateFormatPart struct{}
 
 func (p *DateFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	year, mon, day := r.Time.Date()
-	buf.Write(uint2Bytes4(uint(year)))
+	year, mon, day := r.time.Date()
+	buf.Write(uint2Bytes4(year))
 	buf.WriteByte('-')
-	buf.Write(uint2Bytes2(uint(mon)))
+	buf.Write(uint2Bytes2(int(mon)))
 	buf.WriteByte('-')
-	buf.Write(uint2Bytes2(uint(day)))
+	buf.Write(uint2Bytes2(day))
 }
 
 type SourceFormatPart struct{}
 
 func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	if r.Line > 0 {
-		buf.WriteString(filepath.Base(r.File))
+	if r.line > 0 {
+		buf.WriteString(filepath.Base(r.file))
 		buf.WriteByte(':')
-		buf.WriteString(strconv.Itoa(r.Line))
+		buf.Write(fastUint2DynamicBytes(r.line))
 	} else {
 		buf.Write(unknownFile)
 	}
@@ -185,10 +184,10 @@ func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 type FullSourceFormatPart struct{}
 
 func (p *FullSourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	if r.Line > 0 {
-		buf.WriteString(r.File)
+	if r.line > 0 {
+		buf.WriteString(r.file)
 		buf.WriteByte(':')
-		buf.WriteString(strconv.Itoa(r.Line))
+		buf.Write(fastUint2DynamicBytes(r.line))
 	} else {
 		buf.Write(unknownFile)
 	}
@@ -198,14 +197,14 @@ type MessageFormatPart struct{}
 
 func (p *MessageFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	msg := ""
-	if len(r.Args) > 0 {
-		if r.Message == "" {
-			msg = fmt.Sprint(r.Args...)
+	if len(r.args) > 0 {
+		if r.message == "" {
+			msg = fmt.Sprint(r.args...)
 		} else {
-			msg = fmt.Sprintf(r.Message, r.Args...)
+			msg = fmt.Sprintf(r.message, r.args...)
 		}
 	} else {
-		msg = r.Message
+		msg = r.message
 	}
 	if msg != "" {
 		buf.WriteString(msg)

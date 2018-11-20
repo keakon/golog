@@ -23,7 +23,7 @@ func (h *Handler) AddWriter(w io.WriteCloser) {
 }
 
 func (h *Handler) Handle(r *Record) {
-	if r.Level >= h.level {
+	if r.level >= h.level {
 		buf := bufPool.Get().(*bytes.Buffer)
 		buf.Reset()
 		h.formatter.Format(r, buf)

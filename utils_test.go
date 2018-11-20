@@ -47,3 +47,35 @@ func TestUint2Bytes4(t *testing.T) {
 		t.Errorf("result is " + bs)
 	}
 }
+
+func TestFastUint2DynamicBytes(t *testing.T) {
+	bs := string(fastUint2DynamicBytes(0))
+	if bs != "0" {
+		t.Errorf("result is " + bs)
+	}
+
+	bs = string(fastUint2DynamicBytes(60))
+	if bs != "60" {
+		t.Errorf("result is " + bs)
+	}
+
+	bs = string(fastUint2DynamicBytes(1000))
+	if bs != "1000" {
+		t.Errorf("result is " + bs)
+	}
+
+	bs = string(fastUint2DynamicBytes(1970))
+	if bs != "1970" {
+		t.Errorf("result is " + bs)
+	}
+
+	bs = string(fastUint2DynamicBytes(2038))
+	if bs != "2038" {
+		t.Errorf("result is " + bs)
+	}
+
+	bs = string(fastUint2DynamicBytes(2<<31 - 1))
+	if bs != "4294967295" {
+		t.Errorf("result is " + bs)
+	}
+}

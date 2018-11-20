@@ -97,3 +97,43 @@ func TestLogger(t *testing.T) {
 		t.Error("log contents are not equal")
 	}
 }
+
+func BenchmarkBufferedFileLogger(b *testing.B) {
+	path := filepath.Join(os.TempDir(), "test.log")
+	os.Remove(path)
+	w, err := NewBufferedFileWriter(path)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	h := NewHandler(InfoLevel, DefaultFormatter)
+	h.AddWriter(w)
+	l := Logger{}
+	l.AddHandler(h)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			l.Infof("test")
+		}
+	})
+	l.Close()
+}
+
+func BenchmarkDiscardLogger(b *testing.B) {
+	w := NewDiscardWriter()
+	h := NewHandler(InfoLevel, DefaultFormatter)
+	h.AddWriter(w)
+	l := Logger{}
+	l.AddHandler(h)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			l.Infof("test")
+		}
+	})
+	l.Close()
+}

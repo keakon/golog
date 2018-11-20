@@ -16,8 +16,8 @@ func TestParseFormat(t *testing.T) {
 	if !ok {
 		t.Errorf("part0 is " + reflect.TypeOf(DefaultFormatter.formatParts[0]).String())
 	}
-	if part0.Byte != '[' {
-		t.Errorf("Byte of part0 is %d", part0.Byte)
+	if part0.byte != '[' {
+		t.Errorf("byte of part0 is %d", part0.byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[1].(*LevelFormatPart)
@@ -29,8 +29,8 @@ func TestParseFormat(t *testing.T) {
 	if !ok {
 		t.Errorf("part2 is " + reflect.TypeOf(DefaultFormatter.formatParts[2]).String())
 	}
-	if part2.Byte != ' ' {
-		t.Errorf("Byte of part2 is %d", part2.Byte)
+	if part2.byte != ' ' {
+		t.Errorf("byte of part2 is %d", part2.byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[3].(*DateFormatPart)
@@ -42,8 +42,8 @@ func TestParseFormat(t *testing.T) {
 	if !ok {
 		t.Errorf("part4 is " + reflect.TypeOf(DefaultFormatter.formatParts[4]).String())
 	}
-	if part4.Byte != ' ' {
-		t.Errorf("Byte of part4 is %d", part4.Byte)
+	if part4.byte != ' ' {
+		t.Errorf("byte of part4 is %d", part4.byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[5].(*TimeFormatPart)
@@ -55,8 +55,8 @@ func TestParseFormat(t *testing.T) {
 	if !ok {
 		t.Errorf("part6 is " + reflect.TypeOf(DefaultFormatter.formatParts[6]).String())
 	}
-	if part6.Byte != ' ' {
-		t.Errorf("Byte of part6 is %d", part6.Byte)
+	if part6.byte != ' ' {
+		t.Errorf("byte of part6 is %d", part6.byte)
 	}
 
 	_, ok = DefaultFormatter.formatParts[7].(*SourceFormatPart)
@@ -68,9 +68,9 @@ func TestParseFormat(t *testing.T) {
 	if !ok {
 		t.Errorf("part8 is " + reflect.TypeOf(DefaultFormatter.formatParts[8]).String())
 	}
-	bs := part8.Bytes
+	bs := part8.bytes
 	if len(bs) != 2 || bs[0] != ']' || bs[1] != ' ' {
-		t.Errorf("Bytes of part8 is " + string(part8.Bytes))
+		t.Errorf("bytes of part8 is " + string(part8.bytes))
 	}
 
 	_, ok = DefaultFormatter.formatParts[9].(*MessageFormatPart)
@@ -82,8 +82,8 @@ func TestParseFormat(t *testing.T) {
 	if !ok {
 		t.Errorf("part10 is " + reflect.TypeOf(DefaultFormatter.formatParts[10]).String())
 	}
-	if part10.Byte != '\n' {
-		t.Errorf("Byte of part6 is %d", part6.Byte)
+	if part10.byte != '\n' {
+		t.Errorf("byte of part6 is %d", part6.byte)
 	}
 }
 
@@ -117,7 +117,7 @@ func TestLevelFormatPart(t *testing.T) {
 		t.Error()
 	}
 
-	r.Level = InfoLevel
+	r.level = InfoLevel
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()
@@ -129,7 +129,7 @@ func TestLevelFormatPart(t *testing.T) {
 func TestTimeFormatPart(t *testing.T) {
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
 	r := &Record{
-		Time: tm,
+		time: tm,
 	}
 	buf := &bytes.Buffer{}
 	part := TimeFormatPart{}
@@ -143,7 +143,7 @@ func TestTimeFormatPart(t *testing.T) {
 func TestDateFormatPart(t *testing.T) {
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
 	r := &Record{
-		Time: tm,
+		time: tm,
 	}
 	buf := &bytes.Buffer{}
 	part := DateFormatPart{}
@@ -164,8 +164,8 @@ func TestSourceFormatPart(t *testing.T) {
 		t.Error()
 	}
 
-	r.File = "/test/test.go"
-	r.Line = 10
+	r.file = "/test/test.go"
+	r.line = 10
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()
@@ -184,8 +184,8 @@ func TestFullSourceFormatPart(t *testing.T) {
 		t.Error()
 	}
 
-	r.File = "/test/test.go"
-	r.Line = 10
+	r.file = "/test/test.go"
+	r.line = 10
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()
@@ -204,7 +204,7 @@ func TestMessageFormatPart(t *testing.T) {
 		t.Error()
 	}
 
-	r.Message = "abc"
+	r.message = "abc"
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()
@@ -212,8 +212,8 @@ func TestMessageFormatPart(t *testing.T) {
 		t.Error()
 	}
 
-	r.Message = "abc %d %d"
-	r.Args = []interface{}{1, 2}
+	r.message = "abc %d %d"
+	r.args = []interface{}{1, 2}
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()
@@ -221,8 +221,8 @@ func TestMessageFormatPart(t *testing.T) {
 		t.Error()
 	}
 
-	r.Message = ""
-	r.Args = []interface{}{1, 2}
+	r.message = ""
+	r.args = []interface{}{1, 2}
 	buf.Reset()
 	part.Format(r, buf)
 	bs = buf.String()

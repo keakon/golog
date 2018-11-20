@@ -23,12 +23,12 @@ var (
 )
 
 type Record struct {
-	Level   Level
-	Time    time.Time
-	File    string
-	Line    int
-	Message string
-	Args    []interface{}
+	level   Level
+	time    time.Time
+	file    string
+	line    int
+	message string
+	args    []interface{}
 }
 
 type Logger struct {
@@ -45,18 +45,19 @@ func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interf
 		return
 	}
 
-	r := &Record{
-		Level:   lv,
-		Time:    now(),
-		File:    file,
-		Line:    line,
-		Message: msg,
-		Args:    args,
-	}
+	r := recordPool.Get().(*Record)
+	r.level = lv
+	r.time = now()
+	r.file = file
+	r.line = line
+	r.message = msg
+	r.args = args
 
 	for _, handler := range l.handlers {
 		handler.Handle(r)
 	}
+
+	recordPool.Put(r)
 }
 
 func (l *Logger) Close() {

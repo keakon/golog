@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,6 +50,22 @@ func NewStderrWriter() *ConsoleWriter {
 
 func (w *ConsoleWriter) Close() error {
 	w.File = nil
+	return nil
+}
+
+type DiscardWriter struct {
+	io.Writer
+}
+
+func NewDiscardWriter() *DiscardWriter {
+	w := DiscardWriter{
+		Writer: ioutil.Discard,
+	}
+	return &w
+}
+
+func (w *DiscardWriter) Close() error {
+	w.Writer = nil
 	return nil
 }
 

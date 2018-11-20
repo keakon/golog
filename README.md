@@ -8,3 +8,10 @@
 4. Rotating by size, date or hour
 5. No 3rd party dependance
 6. Fast
+
+## Benchmarks
+
+```
+BenchmarkBufferedFileLogger-8   	 5000000	       304 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDiscardLogger-8        	 5000000	       257 ns/op	       0 B/op	       0 allocs/op
+```
