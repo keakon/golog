@@ -6,8 +6,9 @@
 2. Leveled
 3. With caller (file path / name and line number)
 4. Rotating by size, date or hour
-5. No 3rd party dependancy
-6. Fast
+5. Cross platform, tested on Linux, macOS and Windows
+6. No 3rd party dependancy
+7. Fast
 
 ## Benchmarks
 

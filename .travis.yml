@@ -4,7 +4,20 @@ os:
   - windows
 language: go
 go:
-  - "1.10"
-  - "1.11"
+  - "1.10.x"
+  - "1.11.x"
+cache:
+  directories:
+    - ${TRAVIS_HOME}/gopath
+matrix:
+  include:
+    - os: linux
+      cache:
+        directories:
+          - $HOME/.cache/go-build
+    - os: osx
+      cache:
+        directories:
+          - $HOME/Library/Caches/go-build
 script:
   - go test -v  -benchmem -bench=.
