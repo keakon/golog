@@ -29,7 +29,8 @@ var (
 	now = time.Now
 )
 
-func uint2Bytes(x int, length int) []byte {
+func uint2Bytes(x, length int) []byte {
+	// x and length shoule be uint32
 	result := make([]byte, length)
 	for i := 0; i < length; i++ {
 		remainder := x % 10
@@ -40,6 +41,7 @@ func uint2Bytes(x int, length int) []byte {
 }
 
 func uint2DynamicBytes(x int) []byte {
+	// x shoule be uint32
 	size := 0
 	switch {
 	case x < 10:
@@ -73,6 +75,7 @@ func uint2DynamicBytes(x int) []byte {
 }
 
 func toASCIIByte(x byte) byte {
+	// x shoule between 0 and 9
 	return x + '0'
 }
 
@@ -89,14 +92,17 @@ func init() {
 }
 
 func uint2Bytes2(x int) []byte {
+	// x shoule between 0 and 60
 	return uintBytes2[x]
 }
 
 func uint2Bytes4(x int) []byte {
+	// x shoule between 1970 and 2038
 	return uintBytes4[x-1970]
 }
 
 func fastUint2DynamicBytes(x int) []byte {
+	// x shoule be uint32
 	size := 0
 	switch {
 	case x < 2:

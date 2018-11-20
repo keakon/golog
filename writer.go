@@ -303,6 +303,7 @@ func openTimedRotatingFile(path string, rotateDuration RotateDuration) (*os.File
 	return os.OpenFile(path+pathSuffix, fileFlag, fileMode)
 }
 
+// defines as a variable in order to mock it
 var nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 	now := now()
 	var nextTime time.Time
