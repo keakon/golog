@@ -131,7 +131,7 @@ func (w *BufferedFileWriter) schedule() {
 func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	w.locker.Lock()
 	n, err = w.buffer.Write(p)
-	if !w.updated && n > 0 {
+	if !w.updated && n > 0 && w.buffer.Buffered() > 0 {
 		w.updated = true
 		w.updateChan <- struct{}{}
 	}
@@ -239,11 +239,13 @@ func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 		}
 
 		n, err = w.buffer.Write(p)
-		if !w.updated && w.buffer.Buffered() > 0 {
-			w.updated = true
-			w.updateChan <- struct{}{}
+		if n > 0 {
+			w.pos += uint64(n)
+			if !w.updated && w.buffer.Buffered() > 0 {
+				w.updated = true
+				w.updateChan <- struct{}{}
+			}
 		}
-		w.pos += uint64(n)
 	}
 
 	return
