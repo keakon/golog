@@ -7,4 +7,4 @@ go:
   - "1.10.x"
   - "1.11.x"
 script:
-  - go test -v  -benchmem -bench=.
+  - go test -v -benchmem -bench=.

@@ -437,7 +437,12 @@ func (w *TimedRotatingFileWriter) purge() {
 
 	count := len(pathes) - int(w.backupCount) - 1
 	if count > 0 {
-		name := w.writer.Name()
+		var name string
+		w.locker.Lock()
+		if w.writer != nil { // not closed
+			name = w.writer.Name()
+		}
+		w.locker.Unlock()
 		sort.Strings(pathes)
 		for i := 0; i < count; i++ {
 			path := pathes[i]
