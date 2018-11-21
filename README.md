@@ -23,7 +23,7 @@ go get -u github.com/keakon/golog
 ## Benchmarks
 
 ```
-BenchmarkBufferedFileLogger-8   	 5000000	       304 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBufferedFileLogger-8   	 5000000	       295 ns/op	       0 B/op	       0 allocs/op
 BenchmarkDiscardLogger-8        	 5000000	       257 ns/op	       0 B/op	       0 allocs/op
 ```
 

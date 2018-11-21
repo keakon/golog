@@ -8,8 +8,8 @@ func TestUint2Bytes(t *testing.T) {
 		t.Errorf("result is " + bs)
 	}
 
-	bs = string(uint2Bytes(60, 2))
-	if bs != "60" {
+	bs = string(uint2Bytes(59, 2))
+	if bs != "59" {
 		t.Errorf("result is " + bs)
 	}
 
@@ -30,8 +30,8 @@ func TestUint2Bytes2(t *testing.T) {
 		t.Errorf("result is " + bs)
 	}
 
-	bs = string(uint2Bytes2(60))
-	if bs != "60" {
+	bs = string(uint2Bytes2(59))
+	if bs != "59" {
 		t.Errorf("result is " + bs)
 	}
 }
@@ -54,8 +54,8 @@ func TestFastUint2DynamicBytes(t *testing.T) {
 		t.Errorf("result is " + bs)
 	}
 
-	bs = string(fastUint2DynamicBytes(60))
-	if bs != "60" {
+	bs = string(fastUint2DynamicBytes(59))
+	if bs != "59" {
 		t.Errorf("result is " + bs)
 	}
 
