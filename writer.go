@@ -97,7 +97,6 @@ func NewBufferedFileWriter(path string) (*BufferedFileWriter, error) {
 func (w *BufferedFileWriter) schedule() {
 	locker := &w.locker
 	timer := time.NewTimer(0)
-	bw := w.buffer
 	for {
 		select {
 		case <-w.updateChan:
@@ -114,7 +113,7 @@ func (w *BufferedFileWriter) schedule() {
 			var err error
 			if w.writer != nil { // not closed
 				w.updated = false
-				err = bw.Flush()
+				err = w.buffer.Flush()
 			}
 			locker.Unlock()
 			if err != nil {
@@ -337,7 +336,6 @@ func (w *TimedRotatingFileWriter) schedule() {
 	flushTimer := time.NewTimer(0)
 	duration := nextRotateDuration(w.rotateDuration)
 	rotateTimer := time.NewTimer(duration)
-	bw := w.buffer
 
 	for {
 	updateLoop:
@@ -367,7 +365,7 @@ func (w *TimedRotatingFileWriter) schedule() {
 				var err error
 				if w.writer != nil { // not closed
 					w.updated = false
-					err = bw.Flush()
+					err = w.buffer.Flush()
 				}
 				locker.Unlock()
 				if err != nil {

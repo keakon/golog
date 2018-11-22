@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -211,9 +212,18 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
+	var locker sync.RWMutex
 	setNowFunc(func() time.Time {
-		return tm
+		locker.RLock()
+		now := tm
+		locker.RUnlock()
+		return now
 	})
+	var setNow = func(now time.Time) {
+		locker.Lock()
+		tm = now
+		locker.Unlock()
+	}
 
 	oldNextRotateDuration := nextRotateDuration
 	nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
@@ -242,7 +252,7 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
-	tm = time.Date(2018, 11, 20, 16, 12, 34, 56, time.Local)
+	setNow(time.Date(2018, 11, 20, 16, 12, 34, 56, time.Local))
 	time.Sleep(flushDuration * 2)
 	stat, err = os.Stat(path)
 	if err != nil {
@@ -263,7 +273,7 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 	}
 
 	w.Write([]byte("4567"))
-	tm = time.Date(2018, 11, 21, 16, 12, 34, 56, time.Local)
+	setNow(time.Date(2018, 11, 21, 16, 12, 34, 56, time.Local))
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(path)
 	if err != nil {
@@ -280,7 +290,7 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
-	tm = time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local)
+	setNow(time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local))
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(pathPrefix + "-20181122.log")
 	if err != nil {
@@ -312,9 +322,18 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
+	var locker sync.RWMutex
 	setNowFunc(func() time.Time {
-		return tm
+		locker.RLock()
+		now := tm
+		locker.RUnlock()
+		return now
 	})
+	var setNow = func(now time.Time) {
+		locker.Lock()
+		tm = now
+		locker.Unlock()
+	}
 
 	oldNextRotateDuration := nextRotateDuration
 	nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
@@ -343,7 +362,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
-	tm = time.Date(2018, 11, 19, 17, 12, 34, 56, time.Local)
+	setNow(time.Date(2018, 11, 19, 17, 12, 34, 56, time.Local))
 	time.Sleep(flushDuration * 2)
 	stat, err = os.Stat(path)
 	if err != nil {
@@ -364,7 +383,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	}
 
 	w.Write([]byte("4567"))
-	tm = time.Date(2018, 11, 19, 18, 12, 34, 56, time.Local)
+	setNow(time.Date(2018, 11, 19, 18, 12, 34, 56, time.Local))
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(path)
 	if err != nil {
@@ -381,7 +400,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
-	tm = time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local)
+	setNow(time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local))
 	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(pathPrefix + "-2018112216.log")
 	if err != nil {
