@@ -88,7 +88,7 @@ func NewBufferedFileWriter(path string) (*BufferedFileWriter, error) {
 		writer:     f,
 		buffer:     bufio.NewWriterSize(f, bufferSize),
 		updateChan: make(chan struct{}, 1),
-		stopChan:   make(chan struct{}, 1),
+		stopChan:   make(chan struct{}),
 	}
 	go w.schedule()
 	return w, nil
@@ -153,7 +153,7 @@ func (w *BufferedFileWriter) Close() error {
 	}
 	w.writer = nil
 	w.locker.Unlock()
-	w.stopChan <- struct{}{}
+	close(w.stopChan)
 	return err
 }
 
@@ -197,7 +197,7 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*Rot
 			writer:     f,
 			buffer:     bufio.NewWriterSize(f, bufferSize),
 			updateChan: make(chan struct{}, 1),
-			stopChan:   make(chan struct{}, 1),
+			stopChan:   make(chan struct{}),
 		},
 		path:        path,
 		pos:         uint64(stat.Size()),
@@ -320,7 +320,7 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 			writer:     f,
 			buffer:     bufio.NewWriterSize(f, bufferSize),
 			updateChan: make(chan struct{}, 1),
-			stopChan:   make(chan struct{}, 1),
+			stopChan:   make(chan struct{}),
 		},
 		pathPrefix:     pathPrefix,
 		rotateDuration: rotateDuration,
