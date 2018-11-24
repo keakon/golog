@@ -27,7 +27,8 @@ func (h *Handler) AddWriter(w io.WriteCloser) {
 }
 
 // Handle formats a record using its formatter, then writes the formatted result to all of its writers.
-func (h *Handler) Handle(r *Record) {
+// Return bool for next Handler
+func (h *Handler) Handle(r *Record) bool {
 	if r.level >= h.level {
 		buf := bufPool.Get().(*bytes.Buffer)
 		buf.Reset()
@@ -40,7 +41,9 @@ func (h *Handler) Handle(r *Record) {
 			}
 		}
 		bufPool.Put(buf)
+		return true
 	}
+	return false
 }
 
 // Close closes all its writers, it shouldn't be called twice.

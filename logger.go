@@ -3,6 +3,7 @@ package golog
 import (
 	"io"
 	"runtime"
+	"sort"
 	"time"
 )
 
@@ -38,25 +39,60 @@ type Record struct {
 type Logger struct {
 	level    Level
 	handlers []*Handler
+
+	minLevel Level
+	minIndex int
 }
 
 // NewLogger creates a new Logger of the given level.
 // Messages with the lower level than the logger will be ignored.
 func NewLogger(lv Level) *Logger {
-	return &Logger{level: lv}
+	return &Logger{level: lv, minLevel: lv}
+}
+
+func (l *Logger) SetLevel(level Level) {
+	l.level = level
+	l.updateMin()
+}
+
+// Update minLevel and minIndex after SetLevel and AddHandler.
+func (l *Logger) updateMin() {
+	i, max := 0, len(l.handlers)
+	for i < max && l.handlers[i].level < l.level {
+		i++
+	}
+	l.minIndex = i
+	if i < max {
+		l.minLevel = l.handlers[i].level
+	} else {
+		l.minLevel = l.level
+	}
 }
 
 // AddHandler adds a Handler to the Logger.
 func (l *Logger) AddHandler(h *Handler) {
 	l.handlers = append(l.handlers, h)
+
+	// Sort all handlers
+	sort.Slice(l.handlers, func(i, j int) bool {
+		if l.handlers[i].level < l.handlers[j].level {
+			return true
+		}
+		return false
+	})
+	l.updateMin()
 }
 
-// Log logs a message with context.
-func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
-	if lv < l.level || lv > CritLevel {
-		return
+// Should this level of logger be returned?
+func (l *Logger) HigherThan(level Level) bool {
+	if l.minLevel > level {
+		return true
 	}
+	return false
+}
 
+// Log logs a message with context. Judge level before l.log().
+func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
 	r := recordPool.Get().(*Record)
 	r.level = lv
 	r.time = now()
@@ -65,8 +101,9 @@ func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interf
 	r.message = msg
 	r.args = args
 
-	for _, handler := range l.handlers {
-		handler.Handle(r)
+	next, max := true, len(l.handlers)
+	for i := l.minIndex; next && i < max; i++ {
+		next = l.handlers[i].Handle(r)
 	}
 
 	recordPool.Put(r)
@@ -82,48 +119,72 @@ func (l *Logger) Close() {
 
 // Debug logs a debug level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Debug(args ...interface{}) {
+	if l.HigherThan(DebugLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1) // deeper caller will be more expensive
 	l.Log(DebugLevel, file, line, "", args...)
 }
 
 // Debugf logs a debug level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Debugf(msg string, args ...interface{}) {
+	if l.HigherThan(DebugLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(DebugLevel, file, line, msg, args...)
 }
 
 // Info logs a info level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Info(args ...interface{}) {
+	if l.HigherThan(InfoLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(InfoLevel, file, line, "", args...)
 }
 
 // Infof logs a info level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Infof(msg string, args ...interface{}) {
+	if l.HigherThan(InfoLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(InfoLevel, file, line, msg, args...)
 }
 
 // Warn logs a warning level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Warn(args ...interface{}) {
+	if l.HigherThan(WarnLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(WarnLevel, file, line, "", args...)
 }
 
 // Warnf logs a warning level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Warnf(msg string, args ...interface{}) {
+	if l.HigherThan(WarnLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(WarnLevel, file, line, msg, args...)
 }
 
 // Error logs an error level message. It uses fmt.Sprint() to format args.
 func (l *Logger) Error(args ...interface{}) {
+	if l.HigherThan(ErrorLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(ErrorLevel, file, line, "", args...)
 }
 
 // Errorf logs a error level message. It uses fmt.Sprintf() to format msg and args.
 func (l *Logger) Errorf(msg string, args ...interface{}) {
+	if l.HigherThan(ErrorLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	l.Log(ErrorLevel, file, line, msg, args...)
 }

@@ -16,48 +16,72 @@ func SetDefaultLogger(l *golog.Logger) {
 
 // Debug logs a debug level message. It uses fmt.Sprint() to format args.
 func Debug(args ...interface{}) {
+	if defaultLogger.HigherThan(golog.DebugLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1) // deeper caller will be more expensive
 	defaultLogger.Log(golog.DebugLevel, file, line, "", args...)
 }
 
 // Debugf logs a debug level message. It uses fmt.Sprintf() to format msg and args.
 func Debugf(msg string, args ...interface{}) {
+	if defaultLogger.HigherThan(golog.DebugLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.DebugLevel, file, line, msg, args...)
 }
 
 // Info logs a info level message. It uses fmt.Sprint() to format args.
 func Info(args ...interface{}) {
+	if defaultLogger.HigherThan(golog.InfoLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.InfoLevel, file, line, "", args...)
 }
 
 // Infof logs a info level message. It uses fmt.Sprintf() to format msg and args.
 func Infof(msg string, args ...interface{}) {
+	if defaultLogger.HigherThan(golog.InfoLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.InfoLevel, file, line, msg, args...)
 }
 
 // Warn logs a warning level message. It uses fmt.Sprint() to format args.
 func Warn(args ...interface{}) {
+	if defaultLogger.HigherThan(golog.WarnLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.WarnLevel, file, line, "", args...)
 }
 
 // Warnf logs a warning level message. It uses fmt.Sprintf() to format msg and args.
 func Warnf(msg string, args ...interface{}) {
+	if defaultLogger.HigherThan(golog.WarnLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.WarnLevel, file, line, msg, args...)
 }
 
 // Error logs an error level message. It uses fmt.Sprint() to format args.
 func Error(args ...interface{}) {
+	if defaultLogger.HigherThan(golog.ErrorLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.ErrorLevel, file, line, "", args...)
 }
 
 // Errorf logs a error level message. It uses fmt.Sprintf() to format msg and args.
 func Errorf(msg string, args ...interface{}) {
+	if defaultLogger.HigherThan(golog.ErrorLevel) {
+		return
+	}
 	_, file, line, _ := runtime.Caller(1)
 	defaultLogger.Log(golog.ErrorLevel, file, line, msg, args...)
 }
