@@ -10,6 +10,56 @@ import (
 	"testing"
 )
 
+func TestLogger_AddHandler(t *testing.T) {
+	write := &discardWriter{
+		Writer: ioutil.Discard,
+	}
+	debug := NewHandler(DebugLevel, DefaultFormatter)
+	debug.AddWriter(write)
+
+	info := NewHandler(InfoLevel, DefaultFormatter)
+	info.AddWriter(write)
+
+	warn := NewHandler(WarnLevel, DefaultFormatter)
+	warn.AddWriter(write)
+
+	crit := NewHandler(CritLevel, DefaultFormatter)
+	crit.AddWriter(write)
+
+	// init level debug
+	l := NewLogger(DebugLevel)
+	if l.minLevel != DebugLevel || l.minIndex != 0 {
+		t.Errorf("init() error")
+	}
+	l.AddHandler(info)
+	if l.minLevel != InfoLevel || l.minIndex != 0 {
+		t.Errorf("add debug error minLevel=%d,index=%d, ", l.minLevel, l.minIndex)
+	}
+	l.AddHandler(crit)
+	if l.minLevel != InfoLevel || l.minIndex != 0 {
+		t.Errorf("add debug error minLevel=%d,index=%d, ", l.minLevel, l.minIndex)
+	}
+
+	// init level info
+	l = NewLogger(InfoLevel)
+	if l.minLevel != InfoLevel || l.minIndex != 0 {
+		t.Errorf("init() error")
+	}
+	l.AddHandler(info)
+	if l.minLevel != InfoLevel || l.minIndex != 0 {
+		t.Errorf("add debug error minLevel=%d,index=%d, ", l.minLevel, l.minIndex)
+	}
+	l.AddHandler(debug)
+	if l.minLevel != InfoLevel || l.minIndex != 1 {
+		t.Errorf("add debug error minLevel=%d,index=%d, ", l.minLevel, l.minIndex)
+	}
+	l.AddHandler(crit)
+	if l.minLevel != InfoLevel || l.minIndex != 1 {
+		t.Errorf("add debug error minLevel=%d,index=%d, ", l.minLevel, l.minIndex)
+	}
+
+}
+
 func TestLogger(t *testing.T) {
 	infoPath := filepath.Join(os.TempDir(), "test_info.log")
 	debugPath := filepath.Join(os.TempDir(), "test_debug.log")
@@ -27,6 +77,7 @@ func TestLogger(t *testing.T) {
 
 	infoHandler := NewHandler(InfoLevel, DefaultFormatter)
 	infoHandler.AddWriter(infoWriter)
+
 	debugHandler := &Handler{
 		formatter: DefaultFormatter,
 	}
@@ -90,13 +141,14 @@ func TestLogger(t *testing.T) {
 		t.Error(err)
 	}
 	size2 := len(debugContent)
-	if size2 != size1*2 {
+	if size2 == size1*2 || size2 == size1*2+1 { // Maybe line number error. log_test:89  VS log_test:108
+		if !bytes.Equal(debugContent[size1:], infoContent) {
+			t.Error("log contents are not equal")
+		}
+	} else {
 		t.Errorf("debug log size are %d bytes", size2)
 	}
 
-	if !bytes.Equal(debugContent[size1:], infoContent) {
-		t.Error("log contents are not equal")
-	}
 }
 
 func BenchmarkBufferedFileLogger(b *testing.B) {
@@ -145,6 +197,42 @@ func BenchmarkDiscardLogger(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			l.Infof("test")
+		}
+	})
+	l.Close()
+}
+
+func BenchmarkMultiLevel(b *testing.B) {
+	l := NewLogger(InfoLevel)
+	write := &discardWriter{
+		Writer: ioutil.Discard,
+	}
+	debug := NewHandler(DebugLevel, DefaultFormatter)
+	debug.AddWriter(write)
+	info := NewHandler(InfoLevel, DefaultFormatter)
+	info.AddWriter(write)
+	warn := NewHandler(WarnLevel, DefaultFormatter)
+	warn.AddWriter(write)
+	er := NewHandler(ErrorLevel, DefaultFormatter)
+	er.AddWriter(write)
+	crit := NewHandler(CritLevel, DefaultFormatter)
+	crit.AddWriter(write)
+
+	l.AddHandler(debug)
+	l.AddHandler(info)
+	l.AddHandler(warn)
+	l.AddHandler(er)
+	l.AddHandler(crit)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			l.Debug("test")
+			l.Info("test")
+			l.Warn("test")
+			l.Error("test")
+			l.Crit("test")
 		}
 	})
 	l.Close()
