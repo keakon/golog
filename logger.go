@@ -75,8 +75,15 @@ func (l *Logger) IsEnabledFor(level Level) bool {
 	return l.minLevel <= level
 }
 
+// GetMinLevel returns its minLevel.
+// Records lower than its minLevel will be ignored.
+func (l *Logger) GetMinLevel() Level {
+	return l.minLevel
+}
+
 // Log logs a message with context.
-// A logger should call its IsEnabledFor() before Log().
+// A logger should check the message level before call its Log().
+// The line param should be uint32.
 func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
 	r := recordPool.Get().(*Record)
 	r.level = lv

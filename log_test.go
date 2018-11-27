@@ -2,7 +2,6 @@ package golog
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -106,9 +105,7 @@ func TestLogger(t *testing.T) {
 }
 
 func TestAddHandler(t *testing.T) {
-	w := &discardWriter{
-		Writer: ioutil.Discard,
-	}
+	w := NewDiscardWriter()
 
 	dh := NewHandler(DebugLevel, DefaultFormatter)
 	dh.AddWriter(w)
@@ -192,19 +189,8 @@ func BenchmarkBufferedFileLogger(b *testing.B) {
 	l.Close()
 }
 
-type discardWriter struct {
-	io.Writer
-}
-
-func (w *discardWriter) Close() error {
-	w.Writer = nil
-	return nil
-}
-
 func BenchmarkDiscardLogger(b *testing.B) {
-	w := &discardWriter{
-		Writer: ioutil.Discard,
-	}
+	w := NewDiscardWriter()
 	h := NewHandler(InfoLevel, DefaultFormatter)
 	h.AddWriter(w)
 	l := NewLogger(InfoLevel)
@@ -222,9 +208,7 @@ func BenchmarkDiscardLogger(b *testing.B) {
 
 func BenchmarkMultiLevel(b *testing.B) {
 	l := NewLogger(WarnLevel)
-	w := &discardWriter{
-		Writer: ioutil.Discard,
-	}
+	w := NewDiscardWriter()
 	dh := NewHandler(DebugLevel, DefaultFormatter)
 	dh.AddWriter(w)
 	ih := NewHandler(InfoLevel, DefaultFormatter)

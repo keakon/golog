@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,6 +34,22 @@ var bufferSize = 1024 * 1024 * 4
 // RotateDuration specifies rotate duration type, should be either RotateByDate or RotateByHour.
 type RotateDuration uint8
 
+// DiscardWriter is a WriteCloser which write everything to devNull
+type DiscardWriter struct {
+	io.Writer
+}
+
+// NewDiscardWriter creates a new ConsoleWriter.
+func NewDiscardWriter() *DiscardWriter {
+	return &DiscardWriter{Writer: ioutil.Discard}
+}
+
+// Close sets its Writer to nil.
+func (w *DiscardWriter) Close() error {
+	w.Writer = nil
+	return nil
+}
+
 // A ConsoleWriter is a writer which should not be acturelly closed.
 type ConsoleWriter struct {
 	*os.File // faster than io.Writer
@@ -39,10 +57,7 @@ type ConsoleWriter struct {
 
 // NewConsoleWriter creates a new ConsoleWriter.
 func NewConsoleWriter(f *os.File) *ConsoleWriter {
-	w := ConsoleWriter{
-		File: f,
-	}
-	return &w
+	return &ConsoleWriter{File: f}
 }
 
 // NewStdoutWriter creates a new stdout writer.
