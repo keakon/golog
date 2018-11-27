@@ -96,6 +96,10 @@ func TestBufferedFileWriter(t *testing.T) {
 
 	f.Close()
 	w.Close()
+	err = w.Close()
+	if err != nil {
+		t.Error(err)
+	}
 	bufferSize = oldBufferSize
 }
 

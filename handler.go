@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// A Handler is a level log handler with a formatter and several writers.
+// A Handler is a leveled log handler with a formatter and several writers.
 type Handler struct {
 	level     Level
 	formatter *Formatter
@@ -22,12 +22,15 @@ func NewHandler(level Level, formatter *Formatter) *Handler {
 }
 
 // AddWriter adds a writer to the Handler.
+// The Write() method of the writer should be thread-safe.
 func (h *Handler) AddWriter(w io.WriteCloser) {
 	h.writers = append(h.writers, w)
 }
 
 // Handle formats a record using its formatter, then writes the formatted result to all of its writers.
 // Returns true if it can handle the record.
+// It's not thread-safe, concurrent record may be written in a random order through different writers.
+// But two records won't be mixed in a single line.
 func (h *Handler) Handle(r *Record) bool {
 	if r.level >= h.level {
 		buf := bufPool.Get().(*bytes.Buffer)
@@ -46,7 +49,9 @@ func (h *Handler) Handle(r *Record) bool {
 	return false
 }
 
-// Close closes all its writers, it shouldn't be called twice.
+// Close closes all its writers.
+// It's safe to call this method more than once,
+// but it's unsafe to call its writers' Close() more than once.
 func (h *Handler) Close() {
 	for _, w := range h.writers {
 		err := w.Close()

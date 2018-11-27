@@ -166,3 +166,24 @@ func TestAddHandler(t *testing.T) {
 		}
 	}
 }
+
+func TestCloseLogger(t *testing.T) {
+	l := &Logger{}
+	l.Close()
+	l.Close()
+
+	l = NewStderrLogger()
+	h := l.handlers[0]
+	w := h.writers[0].(*ConsoleWriter)
+	l.Close()
+	if len(l.handlers) > 0 {
+		t.Error("closed logger is not empty")
+	}
+	if len(h.writers) > 0 {
+		t.Error("closed handler is not empty")
+	}
+	if w.File != nil {
+		t.Error("close logger left its writer opened")
+	}
+	l.Close()
+}

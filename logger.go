@@ -84,6 +84,9 @@ func (l *Logger) GetMinLevel() Level {
 // Log logs a message with context.
 // A logger should check the message level before call its Log().
 // The line param should be uint32.
+// It's not thread-safe, concurrent messages may be written in a random order
+// through different handlers or writers.
+// But two messages won't be mixed in a single line.
 func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
 	r := recordPool.Get().(*Record)
 	r.level = lv
@@ -102,7 +105,8 @@ func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interf
 	recordPool.Put(r)
 }
 
-// Close closes its handlers, it shouldn't be called twice.
+// Close closes its handlers.
+// It's safe to call this method more than once.
 func (l *Logger) Close() {
 	for _, h := range l.handlers {
 		h.Close()
