@@ -114,7 +114,7 @@ func (l *Logger) Close() {
 	l.handlers = nil
 }
 
-// Debug logs a debug level message. It uses fmt.Sprint() to format args.
+// Debug logs a debug level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Debug(args ...interface{}) {
 	if l.IsEnabledFor(DebugLevel) {
 		_, file, line, _ := runtime.Caller(1) // deeper caller will be more expensive
@@ -122,7 +122,7 @@ func (l *Logger) Debug(args ...interface{}) {
 	}
 }
 
-// Debugf logs a debug level message. It uses fmt.Sprintf() to format msg and args.
+// Debugf logs a debug level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Debugf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(DebugLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -130,7 +130,7 @@ func (l *Logger) Debugf(msg string, args ...interface{}) {
 	}
 }
 
-// Info logs a info level message. It uses fmt.Sprint() to format args.
+// Info logs a info level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Info(args ...interface{}) {
 	if l.IsEnabledFor(InfoLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -138,7 +138,7 @@ func (l *Logger) Info(args ...interface{}) {
 	}
 }
 
-// Infof logs a info level message. It uses fmt.Sprintf() to format msg and args.
+// Infof logs a info level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Infof(msg string, args ...interface{}) {
 	if l.IsEnabledFor(InfoLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -146,7 +146,7 @@ func (l *Logger) Infof(msg string, args ...interface{}) {
 	}
 }
 
-// Warn logs a warning level message. It uses fmt.Sprint() to format args.
+// Warn logs a warning level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Warn(args ...interface{}) {
 	if l.IsEnabledFor(WarnLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -154,7 +154,7 @@ func (l *Logger) Warn(args ...interface{}) {
 	}
 }
 
-// Warnf logs a warning level message. It uses fmt.Sprintf() to format msg and args.
+// Warnf logs a warning level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Warnf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(WarnLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -162,7 +162,7 @@ func (l *Logger) Warnf(msg string, args ...interface{}) {
 	}
 }
 
-// Error logs an error level message. It uses fmt.Sprint() to format args.
+// Error logs an error level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Error(args ...interface{}) {
 	if l.IsEnabledFor(ErrorLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -170,7 +170,7 @@ func (l *Logger) Error(args ...interface{}) {
 	}
 }
 
-// Errorf logs a error level message. It uses fmt.Sprintf() to format msg and args.
+// Errorf logs a error level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Errorf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(ErrorLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -178,7 +178,7 @@ func (l *Logger) Errorf(msg string, args ...interface{}) {
 	}
 }
 
-// Crit logs a critical level message. It uses fmt.Sprint() to format args.
+// Crit logs a critical level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Crit(args ...interface{}) {
 	if l.IsEnabledFor(CritLevel) {
 		_, file, line, _ := runtime.Caller(1)
@@ -186,7 +186,7 @@ func (l *Logger) Crit(args ...interface{}) {
 	}
 }
 
-// Critf logs a critical level message. It uses fmt.Sprintf() to format msg and args.
+// Critf logs a critical level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Critf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(CritLevel) {
 		_, file, line, _ := runtime.Caller(1)

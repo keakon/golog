@@ -241,17 +241,13 @@ type MessageFormatPart struct{}
 
 // Format writes the formatted message with args to the buf.
 func (p *MessageFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	msg := ""
 	if len(r.args) > 0 {
 		if r.message == "" {
-			msg = fmt.Sprint(r.args...)
+			fmt.Fprint(buf, r.args...)
 		} else {
-			msg = fmt.Sprintf(r.message, r.args...)
+			fmt.Fprintf(buf, r.message, r.args...)
 		}
-	} else {
-		msg = r.message
-	}
-	if msg != "" {
-		buf.WriteString(msg)
+	} else if r.message != "" {
+		buf.WriteString(r.message)
 	}
 }

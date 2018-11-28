@@ -65,34 +65,34 @@ func SetDefaultLogger(l *golog.Logger) {
 func nop(args ...interface{})              {}
 func nopf(msg string, args ...interface{}) {}
 
-// Debug logs a _debug level message. It uses fmt.Sprint() to format args.
+// Debug logs a _debug level message. It uses fmt.Fprint() to format args.
 var Debug func(args ...interface{})
 
-// Debugf logs a _debug level message. It uses fmt.Sprintf() to format msg and args.
+// Debugf logs a _debug level message. It uses fmt.Fprintf() to format msg and args.
 var Debugf func(msg string, args ...interface{})
 
-// Info logs a _info level message. It uses fmt.Sprint() to format args.
+// Info logs a _info level message. It uses fmt.Fprint() to format args.
 var Info func(args ...interface{})
 
-// Infof logs a _info level message. It uses fmt.Sprintf() to format msg and args.
+// Infof logs a _info level message. It uses fmt.Fprintf() to format msg and args.
 var Infof func(msg string, args ...interface{})
 
-// Warn logs a _warning level message. It uses fmt.Sprint() to format args.
+// Warn logs a _warning level message. It uses fmt.Fprint() to format args.
 var Warn func(args ...interface{})
 
-// Warnf logs a _warning level message. It uses fmt.Sprintf() to format msg and args.
+// Warnf logs a _warning level message. It uses fmt.Fprintf() to format msg and args.
 var Warnf func(msg string, args ...interface{})
 
-// Error logs an _error level message. It uses fmt.Sprint() to format args.
+// Error logs an _error level message. It uses fmt.Fprint() to format args.
 var Error func(args ...interface{})
 
-// Errorf logs a _error level message. It uses fmt.Sprintf() to format msg and args.
+// Errorf logs a _error level message. It uses fmt.Fprintf() to format msg and args.
 var Errorf func(msg string, args ...interface{})
 
-// Crit logs a _critical level message. It uses fmt.Sprint() to format args.
+// Crit logs a _critical level message. It uses fmt.Fprint() to format args.
 var Crit func(args ...interface{})
 
-// Critf logs a _critical level message. It uses fmt.Sprintf() to format msg and args.
+// Critf logs a _critical level message. It uses fmt.Fprintf() to format msg and args.
 var Critf func(msg string, args ...interface{})
 
 func _debug(args ...interface{}) {
