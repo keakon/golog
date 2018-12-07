@@ -124,14 +124,15 @@ func (w *BufferedFileWriter) schedule() {
 		select {
 		case <-timer.C:
 			w.locker.Lock()
+			var err error
 			if w.writer != nil { // not closed
 				w.updated = false
-				err := w.buffer.Flush()
-				if err != nil {
-					logError(err)
-				}
+				err = w.buffer.Flush()
 			}
 			w.locker.Unlock()
+			if err != nil {
+				logError(err)
+			}
 		case <-w.stopChan:
 			stopTimer(timer)
 			return
@@ -165,8 +166,8 @@ func (w *BufferedFileWriter) Close() error {
 		}
 	}
 	w.writer = nil
-	close(w.stopChan)
 	w.locker.Unlock()
+	close(w.stopChan)
 	return err
 }
 
@@ -375,14 +376,15 @@ func (w *TimedRotatingFileWriter) schedule() {
 			select {
 			case <-flushTimer.C:
 				locker.Lock()
+				var err error
 				if w.writer != nil { // not closed
 					w.updated = false
-					err := w.buffer.Flush()
-					if err != nil {
-						logError(err)
-					}
+					err = w.buffer.Flush()
 				}
 				locker.Unlock()
+				if err != nil {
+					logError(err)
+				}
 				break flushLoop
 			case <-rotateTimer.C:
 				err := w.rotate(rotateTimer)
