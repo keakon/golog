@@ -448,4 +448,5 @@ func TestBadWriter(t *testing.T) {
 	logError(errors.New("test"))
 
 	SetInternalLogger(oldLogger)
+	l.Close()
 }
