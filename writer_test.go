@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+func TestMain(m *testing.M) {
+	SetInternalLogger(NewStderrLogger())
+	os.Exit(m.Run())
+}
+
 func TestBufferedFileWriter(t *testing.T) {
 	oldBufferSize := bufferSize
 	bufferSize = 1024
@@ -431,6 +436,8 @@ func (w *badWriter) Close() error {
 }
 
 func TestBadWriter(t *testing.T) {
+	oldLogger := internalLogger
+
 	l := NewLoggerWithWriter(&badWriter{})
 	l.Log(InfoLevel, "", 0, "test")
 	logError(errors.New("test"))
@@ -439,5 +446,5 @@ func TestBadWriter(t *testing.T) {
 	l.Log(InfoLevel, "", 0, "test")
 	logError(errors.New("test"))
 
-	SetInternalLogger(nil)
+	SetInternalLogger(oldLogger)
 }
