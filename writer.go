@@ -154,6 +154,7 @@ func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 
 // Close flushes the buffer, then closes the file writer.
 func (w *BufferedFileWriter) Close() error {
+	close(w.stopChan)
 	w.locker.Lock()
 	err := w.buffer.Flush()
 	w.buffer = nil
@@ -167,7 +168,6 @@ func (w *BufferedFileWriter) Close() error {
 	}
 	w.writer = nil
 	w.locker.Unlock()
-	close(w.stopChan)
 	return err
 }
 
