@@ -1,6 +1,7 @@
 package golog
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -417,4 +418,26 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	w.Close()
 	setNowFunc(time.Now)
 	nextRotateDuration = oldNextRotateDuration
+}
+
+type badWriter struct{}
+
+func (w *badWriter) Write(p []byte) (n int, err error) {
+	return 0, io.ErrShortWrite
+}
+
+func (w *badWriter) Close() error {
+	return nil
+}
+
+func TestBadWriter(t *testing.T) {
+	l := NewLoggerWithWriter(&badWriter{})
+	l.Log(InfoLevel, "", 0, "test")
+	logError(errors.New("test"))
+
+	SetInternalLogger(NewLoggerWithWriter(&badWriter{}))
+	l.Log(InfoLevel, "", 0, "test")
+	logError(errors.New("test"))
+
+	SetInternalLogger(nil)
 }

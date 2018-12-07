@@ -88,9 +88,9 @@ type BufferedFileWriter struct {
 	writer     *os.File
 	buffer     *bufio.Writer
 	locker     sync.Mutex
-	updated    bool
 	updateChan chan struct{}
 	stopChan   chan struct{}
+	updated    bool
 }
 
 // NewBufferedFileWriter creates a new BufferedFileWriter.
@@ -110,7 +110,6 @@ func NewBufferedFileWriter(path string) (*BufferedFileWriter, error) {
 }
 
 func (w *BufferedFileWriter) schedule() {
-	locker := &w.locker
 	timer := time.NewTimer(0)
 	for {
 		select {
@@ -124,13 +123,13 @@ func (w *BufferedFileWriter) schedule() {
 
 		select {
 		case <-timer.C:
-			locker.Lock()
+			w.locker.Lock()
 			var err error
 			if w.writer != nil { // not closed
 				w.updated = false
 				err = w.buffer.Flush()
 			}
-			locker.Unlock()
+			w.locker.Unlock()
 			if err != nil {
 				logError(err)
 			}

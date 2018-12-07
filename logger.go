@@ -42,6 +42,7 @@ type Logger struct {
 	level    Level // the lowest acceptable level
 	minLevel Level // the min level of its handlers
 	handlers []*Handler
+	internal bool
 }
 
 // NewLogger creates a new Logger of the given level.
@@ -57,6 +58,7 @@ func (l *Logger) AddHandler(h *Handler) {
 		return
 	}
 
+	h.internal = l.internal
 	l.handlers = append(l.handlers, h)
 	if len(l.handlers) > 1 {
 		if h.level < l.minLevel {
@@ -213,7 +215,23 @@ func NewStderrLogger() *Logger {
 	return NewLoggerWithWriter(NewStderrWriter())
 }
 
-// SetInternalLogger sets the internalLogger which used to log internal errors.
+// SetInternalLogger sets a logger as the internalLogger which is used to log internal errors.
+// The logger and its handlers will be marked as internal, so do not reuse them.
+// The internalLogger may discard its own errors to prevent recursive log.
 func SetInternalLogger(l *Logger) {
+	if internalLogger != nil {
+		internalLogger.internal = false
+		for _, h := range internalLogger.handlers {
+			h.internal = false
+		}
+	}
+
+	if l != nil {
+		l.internal = true
+		for _, h := range l.handlers {
+			h.internal = true
+		}
+	}
+
 	internalLogger = l
 }

@@ -10,6 +10,7 @@ type Handler struct {
 	level     Level
 	formatter *Formatter
 	writers   []io.WriteCloser
+	internal  bool
 }
 
 // NewHandler creates a new Handler of the given level with the formatter.
@@ -29,6 +30,7 @@ func (h *Handler) AddWriter(w io.WriteCloser) {
 
 // Handle formats a record using its formatter, then writes the formatted result to all of its writers.
 // Returns true if it can handle the record.
+// The errors during writing will be logged by the internalLogger.
 // It's not thread-safe, concurrent record may be written in a random order through different writers.
 // But two records won't be mixed in a single line.
 func (h *Handler) Handle(r *Record) bool {
@@ -39,7 +41,7 @@ func (h *Handler) Handle(r *Record) bool {
 		content := buf.Bytes()
 		for _, w := range h.writers {
 			_, err := w.Write(content)
-			if err != nil {
+			if err != nil && !h.internal {
 				logError(err)
 			}
 		}
