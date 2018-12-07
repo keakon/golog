@@ -437,6 +437,7 @@ func (w *badWriter) Close() error {
 
 func TestBadWriter(t *testing.T) {
 	oldLogger := internalLogger
+	SetInternalLogger(nil)
 
 	l := NewLoggerWithWriter(&badWriter{})
 	l.Log(InfoLevel, "", 0, "test")

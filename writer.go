@@ -166,8 +166,8 @@ func (w *BufferedFileWriter) Close() error {
 		}
 	}
 	w.writer = nil
-	w.locker.Unlock()
 	close(w.stopChan)
+	w.locker.Unlock()
 	return err
 }
 
