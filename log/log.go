@@ -1,8 +1,6 @@
 package log
 
 import (
-	"runtime"
-
 	"github.com/keakon/golog"
 )
 
@@ -96,51 +94,51 @@ var Crit func(args ...interface{})
 var Critf func(msg string, args ...interface{})
 
 func _debug(args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1) // deeper caller will be more expensive
+	file, line := golog.Caller(1) // deeper caller will be more expensive
 	defaultLogger.Log(golog.DebugLevel, file, line, "", args...)
 }
 
 func _debugf(msg string, args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.DebugLevel, file, line, msg, args...)
 }
 
 func _info(args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.InfoLevel, file, line, "", args...)
 }
 
 func _infof(msg string, args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.InfoLevel, file, line, msg, args...)
 }
 
 func _warn(args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.WarnLevel, file, line, "", args...)
 }
 
 func _warnf(msg string, args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.WarnLevel, file, line, msg, args...)
 }
 
 func _error(args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.ErrorLevel, file, line, "", args...)
 }
 
 func _errorf(msg string, args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.ErrorLevel, file, line, msg, args...)
 }
 
 func _crit(args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.CritLevel, file, line, "", args...)
 }
 
 func _critf(msg string, args ...interface{}) {
-	_, file, line, _ := runtime.Caller(1)
+	file, line := golog.Caller(1)
 	defaultLogger.Log(golog.CritLevel, file, line, msg, args...)
 }

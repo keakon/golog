@@ -2,7 +2,6 @@ package golog
 
 import (
 	"io"
-	"runtime"
 	"sort"
 	"time"
 )
@@ -119,7 +118,7 @@ func (l *Logger) Close() {
 // Debug logs a debug level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Debug(args ...interface{}) {
 	if l.IsEnabledFor(DebugLevel) {
-		_, file, line, _ := runtime.Caller(1) // deeper caller will be more expensive
+		file, line := Caller(1) // deeper caller will be more expensive
 		l.Log(DebugLevel, file, line, "", args...)
 	}
 }
@@ -127,7 +126,7 @@ func (l *Logger) Debug(args ...interface{}) {
 // Debugf logs a debug level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Debugf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(DebugLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(DebugLevel, file, line, msg, args...)
 	}
 }
@@ -135,7 +134,7 @@ func (l *Logger) Debugf(msg string, args ...interface{}) {
 // Info logs a info level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Info(args ...interface{}) {
 	if l.IsEnabledFor(InfoLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(InfoLevel, file, line, "", args...)
 	}
 }
@@ -143,7 +142,7 @@ func (l *Logger) Info(args ...interface{}) {
 // Infof logs a info level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Infof(msg string, args ...interface{}) {
 	if l.IsEnabledFor(InfoLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(InfoLevel, file, line, msg, args...)
 	}
 }
@@ -151,7 +150,7 @@ func (l *Logger) Infof(msg string, args ...interface{}) {
 // Warn logs a warning level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Warn(args ...interface{}) {
 	if l.IsEnabledFor(WarnLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(WarnLevel, file, line, "", args...)
 	}
 }
@@ -159,7 +158,7 @@ func (l *Logger) Warn(args ...interface{}) {
 // Warnf logs a warning level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Warnf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(WarnLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(WarnLevel, file, line, msg, args...)
 	}
 }
@@ -167,7 +166,7 @@ func (l *Logger) Warnf(msg string, args ...interface{}) {
 // Error logs an error level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Error(args ...interface{}) {
 	if l.IsEnabledFor(ErrorLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(ErrorLevel, file, line, "", args...)
 	}
 }
@@ -175,7 +174,7 @@ func (l *Logger) Error(args ...interface{}) {
 // Errorf logs a error level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Errorf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(ErrorLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(ErrorLevel, file, line, msg, args...)
 	}
 }
@@ -183,7 +182,7 @@ func (l *Logger) Errorf(msg string, args ...interface{}) {
 // Crit logs a critical level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Crit(args ...interface{}) {
 	if l.IsEnabledFor(CritLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(CritLevel, file, line, "", args...)
 	}
 }
@@ -191,7 +190,7 @@ func (l *Logger) Crit(args ...interface{}) {
 // Critf logs a critical level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Critf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(CritLevel) {
-		_, file, line, _ := runtime.Caller(1)
+		file, line := Caller(1)
 		l.Log(CritLevel, file, line, msg, args...)
 	}
 }

@@ -11,7 +11,7 @@
 4. Customizable output layout
 5. Rotating by size, date or hour
 6. Cross platform, tested on Linux, macOS and Windows
-7. No 3rd party dependancy
+7. No 3rd party dependance
 8. Fast
 
 ## Installation
@@ -23,10 +23,11 @@ go get -u github.com/keakon/golog
 ## Benchmarks
 
 ```
-BenchmarkBufferedFileLogger-8   	 5000000	       294 ns/op	       0 B/op	       0 allocs/op
-BenchmarkDiscardLogger-8        	 5000000	       254 ns/op	       0 B/op	       0 allocs/op
-BenchmarkNopLog-8               	2000000000	         0.45 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMultiLevels-8           	 2000000	      1000 ns/op	       0 B/op	       0 allocs/op
+cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+BenchmarkBufferedFileLogger-12      4186982	       267.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDiscardLogger-12          11162383	       108.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNopLog-12               1000000000	       0.2531 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMultiLevels-12             2543925	       476.6 ns/op	       0 B/op	       0 allocs/op
 ```
 
 Example output of the benchmarks:
