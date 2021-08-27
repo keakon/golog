@@ -155,7 +155,7 @@ func Caller(skip int) (file string, line int) {
 	// inspired by https://zhuanlan.zhihu.com/p/403417640
 
 	rpc := [1]uintptr{}
-	n := runtime.Callers(skip+1, rpc[:])
+	n := runtime.Callers(skip+2, rpc[:]) // need skip one more stack frame
 	if n < 1 {
 		return
 	}
