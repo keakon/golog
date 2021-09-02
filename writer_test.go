@@ -258,7 +258,7 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 	}
 
 	setNow(time.Date(2018, 11, 20, 16, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 2)
+	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(path)
 	if err != nil {
 		t.Error(err)
@@ -368,7 +368,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	}
 
 	setNow(time.Date(2018, 11, 19, 17, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 2)
+	time.Sleep(flushDuration * 4)
 	stat, err = os.Stat(path)
 	if err != nil {
 		t.Error(err)
