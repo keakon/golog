@@ -405,7 +405,7 @@ func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 	w.locker.Lock()
 	if w.writer == nil { // was closed
 		w.locker.Unlock()
-		return os.ErrClosed
+		return nil // usually happens when program exits, should be ignored
 	}
 
 	err := w.buffer.Flush()
