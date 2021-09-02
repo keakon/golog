@@ -377,7 +377,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 		t.Errorf("file size are %d bytes", stat.Size())
 	}
 
-	time.Sleep(flushDuration * 2)
+	time.Sleep(flushDuration * 3)
 	path = pathPrefix + "-2018111917.log"
 	stat, err = os.Stat(path)
 	if err != nil {
@@ -406,7 +406,7 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	}
 
 	setNow(time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 4)
+	time.Sleep(flushDuration * 5)
 	stat, err = os.Stat(pathPrefix + "-2018112216.log")
 	if err != nil {
 		t.Error(err)
