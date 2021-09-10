@@ -28,22 +28,22 @@ go get -u github.com/keakon/golog
 package main
 
 import (
-	"github.com/keakon/golog"
-	"github.com/keakon/golog/log"
+    "github.com/keakon/golog"
+    "github.com/keakon/golog/log"
 )
 
 func main() {
-	l := golog.NewStdoutLogger()
-	defer l.Close()
+    l := golog.NewStdoutLogger()
+    defer l.Close()
 
-	l.Infof("hello %d", 1)
+    l.Infof("hello %d", 1)
 
-	log.SetDefaultLogger(l)
-	test()
+    log.SetDefaultLogger(l)
+    test()
 }
 
 func test() {
-	log.Infof("hello %d", 2)
+    log.Infof("hello %d", 2)
 }
 ```
 
@@ -51,11 +51,11 @@ func test() {
 
 ```go
 func main() {
-	w, _ := golog.NewBufferedFileWriter("test.log")
-	l := golog.NewLoggerWithWriter(w)
-	defer l.Close()
+    w, _ := golog.NewBufferedFileWriter("test.log")
+    l := golog.NewLoggerWithWriter(w)
+    defer l.Close()
 
-	l.Infof("hello world")
+    l.Infof("hello world")
 }
 ```
 
@@ -63,11 +63,11 @@ func main() {
 
 ```go
 func main() {
-	w, _ := golog.NewTimedRotatingFileWriter("test", golog.RotateByDate, 30)
-	l := golog.NewLoggerWithWriter(w)
-	defer l.Close()
+    w, _ := golog.NewTimedRotatingFileWriter("test", golog.RotateByDate, 30)
+    l := golog.NewLoggerWithWriter(w)
+    defer l.Close()
 
-	l.Infof("hello world")
+    l.Infof("hello world")
 }
 ```
 
@@ -75,17 +75,17 @@ func main() {
 
 ```go
 func main() {
-	w := golog.NewStdoutWriter()
+    w := golog.NewStdoutWriter()
 
-	f := golog.ParseFormat("[%l %D %T %S] %m")
-	h := golog.NewHandler(golog.InfoLevel, f)
-	h.AddWriter(w)
+    f := golog.ParseFormat("[%l %D %T %S] %m")
+    h := golog.NewHandler(golog.InfoLevel, f)
+    h.AddWriter(w)
 
-	l := golog.NewLogger(golog.InfoLevel)
-	l.AddHandler(h)
-	defer l.Close()
+    l := golog.NewLogger(golog.InfoLevel)
+    l.AddHandler(h)
+    defer l.Close()
 
-	l.Infof("hello world")
+    l.Infof("hello world")
 }
 ```
 
@@ -95,10 +95,13 @@ Check [document](https://pkg.go.dev/github.com/keakon/golog#Formatter.Format) fo
 
 ```
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
-BenchmarkBufferedFileLogger-12      4364552          268.3 ns/op          0 B/op          0 allocs/op
-BenchmarkDiscardLogger-12           9694594          125.1 ns/op          0 B/op          0 allocs/op
-BenchmarkNopLog-12               1000000000          0.2551 ns/op         0 B/op          0 allocs/op
-BenchmarkMultiLevels-12             2174760          560.6 ns/op          0 B/op          0 allocs/op
+BenchmarkBufferedFileLogger-12      4364552         268.3 ns/op         0 B/op         0 allocs/op
+BenchmarkDiscardLogger-12           9694594         125.1 ns/op         0 B/op         0 allocs/op
+BenchmarkNopLog-12               1000000000         0.2551 ns/op        0 B/op         0 allocs/op
+BenchmarkMultiLevels-12             2174760         560.6 ns/op         0 B/op         0 allocs/op
+
+BenchmarkDiscardZerolog-12          3969729         305.2 ns/op         280 B/op       3 allocs/op
+BenchmarkDiscardZap-12              2847194         420.9 ns/op         321 B/op       7 allocs/op
 ```
 
 Example output of the benchmarks:
