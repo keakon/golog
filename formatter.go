@@ -33,7 +33,7 @@ func ParseFormat(format string) (formatter *Formatter) {
 
 /*
 Format formats a record to a bytes.Buffer.
-Supported format verbs:
+Supported format directives:
 	%%: %
 	%l: short name of the level
 	%T: time string (HH:MM:SS)
