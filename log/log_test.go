@@ -119,6 +119,24 @@ func BenchmarkDiscardLogger(b *testing.B) {
 	l.Close()
 }
 
+func BenchmarkDiscardNoCallerLogger(b *testing.B) {
+	w := golog.NewDiscardWriter()
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	l.SetEnableCaller(false)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			l.Infof("test")
+		}
+	})
+	l.Close()
+}
+
 func BenchmarkNopLog(b *testing.B) {
 	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)

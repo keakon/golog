@@ -38,16 +38,24 @@ type Record struct {
 
 // A Logger is a leveled logger with several handlers.
 type Logger struct {
-	level    Level // the lowest acceptable level
-	minLevel Level // the min level of its handlers
-	handlers []*Handler
-	internal bool
+	level        Level // the lowest acceptable level
+	minLevel     Level // the min level of its handlers
+	handlers     []*Handler
+	isInternal   bool
+	enableCaller bool
 }
 
 // NewLogger creates a new Logger of the given level.
 // Messages with lower level than the logger will be ignored.
 func NewLogger(lv Level) *Logger {
-	return &Logger{level: lv, minLevel: disabledLevel} // disable all levels for empty logger
+	return &Logger{level: lv, minLevel: disabledLevel, enableCaller: true} // disable all levels for empty logger
+}
+
+// SetEnableCaller set the whether enable caller for the logger.
+// Disable caller will be faster, but cannot get the source file and line number.
+// Its default value is true.
+func (l *Logger) SetEnableCaller(enable bool) {
+	l.enableCaller = enable
 }
 
 // AddHandler adds a Handler to the Logger.
@@ -57,7 +65,7 @@ func (l *Logger) AddHandler(h *Handler) {
 		return
 	}
 
-	h.internal = l.internal
+	h.isInternal = l.isInternal
 	l.handlers = append(l.handlers, h)
 	if len(l.handlers) > 1 {
 		if h.level < l.minLevel {
@@ -118,7 +126,11 @@ func (l *Logger) Close() {
 // Debug logs a debug level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Debug(args ...interface{}) {
 	if l.IsEnabledFor(DebugLevel) {
-		file, line := Caller(1) // deeper caller will be more expensive
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1) // deeper caller will be more expensive
+		}
 		l.Log(DebugLevel, file, line, "", args...)
 	}
 }
@@ -126,7 +138,11 @@ func (l *Logger) Debug(args ...interface{}) {
 // Debugf logs a debug level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Debugf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(DebugLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(DebugLevel, file, line, msg, args...)
 	}
 }
@@ -134,7 +150,11 @@ func (l *Logger) Debugf(msg string, args ...interface{}) {
 // Info logs a info level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Info(args ...interface{}) {
 	if l.IsEnabledFor(InfoLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(InfoLevel, file, line, "", args...)
 	}
 }
@@ -142,7 +162,11 @@ func (l *Logger) Info(args ...interface{}) {
 // Infof logs a info level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Infof(msg string, args ...interface{}) {
 	if l.IsEnabledFor(InfoLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(InfoLevel, file, line, msg, args...)
 	}
 }
@@ -150,7 +174,11 @@ func (l *Logger) Infof(msg string, args ...interface{}) {
 // Warn logs a warning level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Warn(args ...interface{}) {
 	if l.IsEnabledFor(WarnLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(WarnLevel, file, line, "", args...)
 	}
 }
@@ -158,7 +186,11 @@ func (l *Logger) Warn(args ...interface{}) {
 // Warnf logs a warning level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Warnf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(WarnLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(WarnLevel, file, line, msg, args...)
 	}
 }
@@ -166,7 +198,11 @@ func (l *Logger) Warnf(msg string, args ...interface{}) {
 // Error logs an error level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Error(args ...interface{}) {
 	if l.IsEnabledFor(ErrorLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(ErrorLevel, file, line, "", args...)
 	}
 }
@@ -174,7 +210,11 @@ func (l *Logger) Error(args ...interface{}) {
 // Errorf logs a error level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Errorf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(ErrorLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(ErrorLevel, file, line, msg, args...)
 	}
 }
@@ -182,7 +222,11 @@ func (l *Logger) Errorf(msg string, args ...interface{}) {
 // Crit logs a critical level message. It uses fmt.Fprint() to format args.
 func (l *Logger) Crit(args ...interface{}) {
 	if l.IsEnabledFor(CritLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(CritLevel, file, line, "", args...)
 	}
 }
@@ -190,7 +234,11 @@ func (l *Logger) Crit(args ...interface{}) {
 // Critf logs a critical level message. It uses fmt.Fprintf() to format msg and args.
 func (l *Logger) Critf(msg string, args ...interface{}) {
 	if l.IsEnabledFor(CritLevel) {
-		file, line := Caller(1)
+		var file string
+		var line int
+		if l.enableCaller {
+			file, line = Caller(1)
+		}
 		l.Log(CritLevel, file, line, msg, args...)
 	}
 }
@@ -219,16 +267,16 @@ func NewStderrLogger() *Logger {
 // The internalLogger may discard its own errors to prevent recursive log.
 func SetInternalLogger(l *Logger) {
 	if internalLogger != nil {
-		internalLogger.internal = false
+		internalLogger.isInternal = false
 		for _, h := range internalLogger.handlers {
-			h.internal = false
+			h.isInternal = false
 		}
 	}
 
 	if l != nil {
-		l.internal = true
+		l.isInternal = true
 		for _, h := range l.handlers {
-			h.internal = true
+			h.isInternal = true
 		}
 	}
 

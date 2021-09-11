@@ -104,6 +104,50 @@ func TestLogger(t *testing.T) {
 	}
 }
 
+func TestLoggerSetEnableCaller(t *testing.T) {
+	infoPath := filepath.Join(os.TempDir(), "test_info.log")
+	os.Remove(infoPath)
+
+	infoWriter, err := NewFileWriter(infoPath)
+	if err != nil {
+		t.Error(err)
+	}
+
+	infoHandler := NewHandler(InfoLevel, DefaultFormatter)
+	infoHandler.AddWriter(infoWriter)
+
+	l := NewLogger(DebugLevel)
+	l.SetEnableCaller(false)
+	l.AddHandler(infoHandler)
+
+	l.Infof("test")
+
+	infoContent, err := ioutil.ReadFile(infoPath)
+	if err != nil {
+		t.Error(err)
+	}
+
+	parts := strings.Fields(string(infoContent))
+	if len(parts) != 5 {
+		t.Errorf("parts length are %d", len(parts))
+	}
+	if parts[0] != "[I" {
+		t.Errorf("parts[0] is " + parts[0])
+	}
+	if len(parts[1]) != 10 {
+		t.Errorf("parts[1] is " + parts[1])
+	}
+	if len(parts[2]) != 8 {
+		t.Errorf("parts[2] is " + parts[2])
+	}
+	if parts[3] != "???]" {
+		t.Errorf("parts[3] is " + parts[3])
+	}
+	if parts[4] != "test" {
+		t.Errorf("parts[4] is " + parts[4])
+	}
+}
+
 func TestAddHandler(t *testing.T) {
 	w := NewDiscardWriter()
 
