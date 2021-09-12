@@ -109,10 +109,10 @@ Check [document](https://pkg.go.dev/github.com/keakon/golog#Formatter.Format) fo
 go1.17 darwin/amd64
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 
-BenchmarkBufferedFileLogger-12      4470165         281.8 ns/op        0 B/op          0 allocs/op
-BenchmarkDiscardLogger-12          14886738         79.74 ns/op        0 B/op          0 allocs/op
-BenchmarkNopLog-12               1000000000        0.2131 ns/op        0 B/op          0 allocs/op
-BenchmarkMultiLevels-12             3647791         332.0 ns/op        0 B/op          0 allocs/op
+BenchmarkBufferedFileLogger-12      4860159         242.4 ns/op        0 B/op          0 allocs/op
+BenchmarkDiscardLogger-12          15149103         75.72 ns/op        0 B/op          0 allocs/op
+BenchmarkNopLog-12               1000000000        0.2130 ns/op        0 B/op          0 allocs/op
+BenchmarkMultiLevels-12             4026079         298.3 ns/op        0 B/op          0 allocs/op
 
 BenchmarkDiscardZerolog-12          4112203         293.5 ns/op      280 B/op          3 allocs/op
 BenchmarkDiscardZap-12              3086234         398.6 ns/op      321 B/op          7 allocs/op

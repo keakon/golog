@@ -3,7 +3,7 @@ package golog
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
+	"os"
 )
 
 var unknownFile = []byte("???")
@@ -198,18 +198,26 @@ type SourceFormatPart struct{}
 // Format writes the source file name and line number of the record to the buf.
 func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	if r.line > 0 {
-		fileName := []byte(filepath.Base(r.file))
-		index := bytes.IndexByte(fileName, '.')
-		if index == -1 {
-			buf.Write(fileName)
-		} else {
-			buf.Write(fileName[:index])
+		length := len(r.file)
+		if length > 0 {
+			start := 0
+			end := length
+			for i := length - 1; i >= 0; i-- {
+				c := r.file[i]
+				if os.IsPathSeparator(c) {
+					start = i + 1
+					break
+				} else if c == '.' {
+					end = i
+				}
+			}
+			buf.WriteString(r.file[start:end])
+			buf.WriteByte(':')
+			buf.Write(fastUint2DynamicBytes(r.line))
+			return
 		}
-		buf.WriteByte(':')
-		buf.Write(fastUint2DynamicBytes(r.line))
-	} else {
-		buf.Write(unknownFile)
 	}
+	buf.Write(unknownFile)
 }
 
 // FullSourceFormatPart is a FormatPart of the full source code placeholder.

@@ -27,8 +27,7 @@ var (
 
 // A Record is an item which contains required context for the logger.
 type Record struct {
-	level Level
-	// time    time.Time
+	level   Level
 	date    string
 	time    string
 	file    string
