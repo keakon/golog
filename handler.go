@@ -7,10 +7,10 @@ import (
 
 // A Handler is a leveled log handler with a formatter and several writers.
 type Handler struct {
-	level     Level
-	formatter *Formatter
-	writers   []io.WriteCloser
-	internal  bool
+	level      Level
+	formatter  *Formatter
+	writers    []io.WriteCloser
+	isInternal bool
 }
 
 // NewHandler creates a new Handler of the given level with the formatter.
@@ -41,7 +41,7 @@ func (h *Handler) Handle(r *Record) bool {
 		content := buf.Bytes()
 		for _, w := range h.writers {
 			_, err := w.Write(content)
-			if err != nil && !h.internal {
+			if err != nil && !h.isInternal {
 				logError(err)
 			}
 		}

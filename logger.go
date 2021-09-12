@@ -3,7 +3,6 @@ package golog
 import (
 	"io"
 	"sort"
-	"time"
 )
 
 // Level specifies the log level.
@@ -28,8 +27,10 @@ var (
 
 // A Record is an item which contains required context for the logger.
 type Record struct {
-	level   Level
-	time    time.Time
+	level Level
+	// time    time.Time
+	date    string
+	time    string
 	file    string
 	line    int
 	message string
@@ -38,10 +39,10 @@ type Record struct {
 
 // A Logger is a leveled logger with several handlers.
 type Logger struct {
-	level    Level // the lowest acceptable level
-	minLevel Level // the min level of its handlers
-	handlers []*Handler
-	internal bool
+	level      Level // the lowest acceptable level
+	minLevel   Level // the min level of its handlers
+	handlers   []*Handler
+	isInternal bool
 }
 
 // NewLogger creates a new Logger of the given level.
@@ -57,7 +58,7 @@ func (l *Logger) AddHandler(h *Handler) {
 		return
 	}
 
-	h.internal = l.internal
+	h.isInternal = l.isInternal
 	l.handlers = append(l.handlers, h)
 	if len(l.handlers) > 1 {
 		if h.level < l.minLevel {
@@ -91,7 +92,8 @@ func (l *Logger) GetMinLevel() Level {
 func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
 	r := recordPool.Get().(*Record)
 	r.level = lv
-	r.time = now()
+	r.time = fastTimer.time
+	r.date = fastTimer.date
 	r.file = file
 	r.line = line
 	r.message = msg
@@ -219,16 +221,16 @@ func NewStderrLogger() *Logger {
 // The internalLogger may discard its own errors to prevent recursive log.
 func SetInternalLogger(l *Logger) {
 	if internalLogger != nil {
-		internalLogger.internal = false
+		internalLogger.isInternal = false
 		for _, h := range internalLogger.handlers {
-			h.internal = false
+			h.isInternal = false
 		}
 	}
 
 	if l != nil {
-		l.internal = true
+		l.isInternal = true
 		for _, h := range l.handlers {
-			h.internal = true
+			h.isInternal = true
 		}
 	}
 

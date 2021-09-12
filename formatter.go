@@ -181,12 +181,7 @@ type TimeFormatPart struct{}
 
 // Format writes the time string of the record to the buf.
 func (p *TimeFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	hour, min, sec := r.time.Clock()
-	buf.Write(uint2Bytes2(hour))
-	buf.WriteByte(':')
-	buf.Write(uint2Bytes2(min))
-	buf.WriteByte(':')
-	buf.Write(uint2Bytes2(sec))
+	buf.WriteString(r.time)
 }
 
 // DateFormatPart is a FormatPart of the date placeholder.
@@ -194,12 +189,7 @@ type DateFormatPart struct{}
 
 // Format writes the date string of the record to the buf.
 func (p *DateFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	year, mon, day := r.time.Date()
-	buf.Write(uint2Bytes4(year))
-	buf.WriteByte('-')
-	buf.Write(uint2Bytes2(int(mon)))
-	buf.WriteByte('-')
-	buf.Write(uint2Bytes2(day))
+	buf.WriteString(r.date)
 }
 
 // SourceFormatPart is a FormatPart of the source code placeholder.

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestParseFormat(t *testing.T) {
@@ -127,9 +126,9 @@ func TestLevelFormatPart(t *testing.T) {
 }
 
 func TestTimeFormatPart(t *testing.T) {
-	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
 	r := &Record{
-		time: tm,
+		time: "16:12:34",
+		date: "2018-11-19",
 	}
 	buf := &bytes.Buffer{}
 	part := TimeFormatPart{}
@@ -141,9 +140,9 @@ func TestTimeFormatPart(t *testing.T) {
 }
 
 func TestDateFormatPart(t *testing.T) {
-	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
 	r := &Record{
-		time: tm,
+		time: "16:12:34",
+		date: "2018-11-19",
 	}
 	buf := &bytes.Buffer{}
 	part := DateFormatPart{}

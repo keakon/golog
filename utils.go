@@ -3,6 +3,7 @@ package golog
 import (
 	"bytes"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,6 +30,8 @@ var (
 	frameCache sync.Map
 
 	now = time.Now
+
+	fastTimer = FastTimer{}
 )
 
 func uint2Bytes(x, size int) []byte {
@@ -169,4 +172,64 @@ func Caller(skip int) (file string, line int) {
 		frameCache.Store(pc, frame)
 	}
 	return frame.File, frame.Line
+}
+
+// FastTimer is not thread-safe for performance reason, but all the threads will notice its changes in a few milliseconds.
+type FastTimer struct {
+	date     string
+	time     string
+	stopChan chan struct{}
+}
+
+func (t *FastTimer) update(tm time.Time, buf strings.Builder) {
+	buf.Reset()
+	hour, min, sec := tm.Clock()
+	buf.Write(uint2Bytes2(hour))
+	buf.WriteByte(':')
+	buf.Write(uint2Bytes2(min))
+	buf.WriteByte(':')
+	buf.Write(uint2Bytes2(sec))
+	t.time = buf.String()
+
+	buf.Reset()
+	year, mon, day := tm.Date()
+	buf.Write(uint2Bytes4(year))
+	buf.WriteByte('-')
+	buf.Write(uint2Bytes2(int(mon)))
+	buf.WriteByte('-')
+	buf.Write(uint2Bytes2(day))
+	t.date = buf.String()
+}
+
+func (t *FastTimer) Start() {
+	t.stopChan = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+
+		buf := strings.Builder{}
+		t.update(now(), buf)
+
+		for {
+			select {
+			case tm := <-ticker.C:
+				t.update(tm, buf)
+			case <-t.stopChan:
+				close(t.stopChan)
+				return
+			}
+		}
+	}()
+}
+
+func (t *FastTimer) Stop() {
+	t.stopChan <- struct{}{}
+}
+
+func StartFastTimer() {
+	fastTimer.Start()
+}
+
+func StopFastTimer() {
+	fastTimer.Stop()
 }

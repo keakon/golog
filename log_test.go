@@ -1,3 +1,6 @@
+// +build !race
+// golog.FastTimer is not thread-safe.
+
 package golog
 
 import (
@@ -10,6 +13,9 @@ import (
 )
 
 func TestLogger(t *testing.T) {
+	fastTimer.Start()
+	defer fastTimer.Stop()
+
 	infoPath := filepath.Join(os.TempDir(), "test_info.log")
 	debugPath := filepath.Join(os.TempDir(), "test_debug.log")
 	os.Remove(infoPath)
