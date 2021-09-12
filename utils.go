@@ -202,13 +202,14 @@ func (t *FastTimer) update(tm time.Time, buf strings.Builder) {
 }
 
 func (t *FastTimer) Start() {
+	buf := strings.Builder{}
+	t.update(now(), buf)
+
 	t.stopChan = make(chan struct{})
+
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
-
-		buf := strings.Builder{}
-		t.update(now(), buf)
 
 		for {
 			select {

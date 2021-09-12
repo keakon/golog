@@ -33,6 +33,9 @@ import (
 )
 
 func main() {
+    golog.StartFastTimer()
+    defer golog.StopFastTimer()
+
     l := golog.NewStdoutLogger()
     defer l.Close()
 
@@ -51,6 +54,9 @@ func test() {
 
 ```go
 func main() {
+    golog.StartFastTimer()
+    defer golog.StopFastTimer()
+
     w, _ := golog.NewBufferedFileWriter("test.log")
     l := golog.NewLoggerWithWriter(w)
     defer l.Close()
@@ -63,6 +69,9 @@ func main() {
 
 ```go
 func main() {
+    golog.StartFastTimer()
+    defer golog.StopFastTimer()
+
     w, _ := golog.NewTimedRotatingFileWriter("test", golog.RotateByDate, 30)
     l := golog.NewLoggerWithWriter(w)
     defer l.Close()
@@ -75,6 +84,9 @@ func main() {
 
 ```go
 func main() {
+    golog.StartFastTimer()
+    defer golog.StopFastTimer()
+
     w := golog.NewStdoutWriter()
 
     f := golog.ParseFormat("[%l %D %T %S] %m")
@@ -97,13 +109,13 @@ Check [document](https://pkg.go.dev/github.com/keakon/golog#Formatter.Format) fo
 go1.17 darwin/amd64
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 
-BenchmarkBufferedFileLogger-12      4112772         265.9 ns/op         0 B/op         0 allocs/op
-BenchmarkDiscardLogger-12          10188362         115.6 ns/op         0 B/op         0 allocs/op
-BenchmarkNopLog-12               1000000000         0.1923 ns/op        0 B/op         0 allocs/op
-BenchmarkMultiLevels-12             2394016         495.3 ns/op         0 B/op         0 allocs/op
+BenchmarkBufferedFileLogger-12      4470165         281.8 ns/op        0 B/op          0 allocs/op
+BenchmarkDiscardLogger-12          14886738         79.74 ns/op        0 B/op          0 allocs/op
+BenchmarkNopLog-12               1000000000        0.2131 ns/op        0 B/op          0 allocs/op
+BenchmarkMultiLevels-12             3647791         332.0 ns/op        0 B/op          0 allocs/op
 
-BenchmarkDiscardZerolog-12          4146640         290.9 ns/op       280 B/op         3 allocs/op
-BenchmarkDiscardZap-12              2919092         406.5 ns/op       321 B/op         7 allocs/op
+BenchmarkDiscardZerolog-12          4112203         293.5 ns/op      280 B/op          3 allocs/op
+BenchmarkDiscardZap-12              3086234         398.6 ns/op      321 B/op          7 allocs/op
 ```
 
 Example output of the benchmarks:
