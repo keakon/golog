@@ -99,7 +99,7 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 
 BenchmarkBufferedFileLogger-12      4112772         265.9 ns/op         0 B/op         0 allocs/op
 BenchmarkDiscardLogger-12          10188362         115.6 ns/op         0 B/op         0 allocs/op
-BenchmarkNopLog-12               1000000000         0.1923 ns/op        0 B/op         0 allocs/op
+BenchmarkNopLog-12               1000000000        0.1923 ns/op         0 B/op         0 allocs/op
 BenchmarkMultiLevels-12             2394016         495.3 ns/op         0 B/op         0 allocs/op
 
 BenchmarkDiscardZerolog-12          4146640         290.9 ns/op       280 B/op         3 allocs/op
