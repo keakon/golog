@@ -7,6 +7,93 @@ import (
 )
 
 func TestParseFormat(t *testing.T) {
+	if ParseFormat("") != nil {
+		t.Error("ParseFormat empty string is not nil")
+	}
+
+	formatter := ParseFormat("%")
+	if len(formatter.formatParts) != 1 {
+		t.Error("ParseFormat % failed")
+	}
+	p, ok := formatter.formatParts[0].(*BytesFormatPart)
+	if !ok {
+		t.Error("ParseFormat % failed")
+	}
+	if string(p.bytes) != "%\n" {
+		t.Error("ParseFormat % failed")
+	}
+
+	formatter = ParseFormat("%%")
+	if len(formatter.formatParts) != 1 {
+		t.Error("ParseFormat % failed")
+	}
+	p, ok = formatter.formatParts[0].(*BytesFormatPart)
+	if !ok {
+		t.Error("ParseFormat % failed")
+	}
+	if string(p.bytes) != "%\n" {
+		t.Error("ParseFormat % failed")
+	}
+
+	formatter = ParseFormat("%a")
+	if len(formatter.formatParts) != 1 {
+		t.Error("ParseFormat %a failed")
+	}
+	p, ok = formatter.formatParts[0].(*BytesFormatPart)
+	if !ok {
+		t.Error("ParseFormat %a failed")
+	}
+	if string(p.bytes) != "%a\n" {
+		t.Error("ParseFormat %a failed")
+	}
+
+	formatter = ParseFormat("% %")
+	if len(formatter.formatParts) != 1 {
+		t.Error("ParseFormat % % failed")
+	}
+	p, ok = formatter.formatParts[0].(*BytesFormatPart)
+	if !ok {
+		t.Error("ParseFormat % % failed")
+	}
+	if string(p.bytes) != "% %\n" {
+		t.Error("ParseFormat % % failed")
+	}
+
+	formatter = ParseFormat("% %a")
+	if len(formatter.formatParts) != 1 {
+		t.Error("ParseFormat % %a failed")
+	}
+	p, ok = formatter.formatParts[0].(*BytesFormatPart)
+	if !ok {
+		t.Error("ParseFormat % %a failed")
+	}
+	if string(p.bytes) != "% %a\n" {
+		t.Error("ParseFormat % %a failed")
+	}
+
+	formatter = ParseFormat("abc")
+	if len(formatter.formatParts) != 1 {
+		t.Error("ParseFormat abc failed")
+	}
+	p, ok = formatter.formatParts[0].(*BytesFormatPart)
+	if !ok {
+		t.Error("ParseFormat abc failed")
+	}
+	if string(p.bytes) != "abc\n" {
+		t.Error("ParseFormat abc failed")
+	}
+
+	formatter = ParseFormat("%S")
+	if len(formatter.formatParts) != 2 {
+		t.Error("ParseFormat abc failed")
+	}
+	if _, ok = formatter.formatParts[0].(*FullSourceFormatPart); !ok {
+		t.Error("ParseFormat %S failed")
+	}
+	if _, ok = formatter.formatParts[1].(*ByteFormatPart); !ok {
+		t.Error("ParseFormat %S failed")
+	}
+
 	if len(DefaultFormatter.formatParts) != 11 {
 		t.Errorf("formatParts are %d", len(DefaultFormatter.formatParts))
 	}

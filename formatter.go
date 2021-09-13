@@ -126,8 +126,10 @@ func (f *Formatter) appendByte(b byte) {
 			}
 		default:
 			p = &ByteFormatPart{byte: b}
+			f.formatParts = append(parts, p)
+			return
 		}
-		f.formatParts = append(parts, p)
+		f.formatParts[count-1] = p
 	}
 }
 
@@ -153,7 +155,7 @@ func (f *Formatter) appendBytes(bs []byte) {
 		var p FormatPart
 		lastPart := parts[count-1]
 		switch lp := lastPart.(type) {
-		case *ByteFormatPart:
+		case *ByteFormatPart: // won't reach here
 			p = &BytesFormatPart{
 				bytes: append([]byte{lp.byte}, bs...),
 			}
@@ -163,8 +165,10 @@ func (f *Formatter) appendBytes(bs []byte) {
 			}
 		default:
 			p = &BytesFormatPart{bytes: bs}
+			f.formatParts = append(parts, p)
+			return
 		}
-		f.formatParts = append(parts, p)
+		f.formatParts[count-1] = p
 	}
 }
 

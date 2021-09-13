@@ -1,4 +1,6 @@
+//go:build !race
 // +build !race
+
 // golog.FastTimer is not thread-safe.
 
 package golog
@@ -13,8 +15,8 @@ import (
 )
 
 func TestLogger(t *testing.T) {
-	fastTimer.Start()
-	defer fastTimer.Stop()
+	fastTimer.start()
+	defer fastTimer.stop()
 
 	infoPath := filepath.Join(os.TempDir(), "test_info.log")
 	debugPath := filepath.Join(os.TempDir(), "test_debug.log")
@@ -110,6 +112,26 @@ func TestLogger(t *testing.T) {
 	}
 }
 
+func TestGetMinLevel(t *testing.T) {
+	l := NewLogger(InfoLevel)
+	defer l.Close()
+	if l.GetMinLevel() != disabledLevel {
+		t.Errorf("GetMinLevel failed")
+	}
+
+	errorHandler := NewHandler(ErrorLevel, DefaultFormatter)
+	l.AddHandler(errorHandler)
+	if l.GetMinLevel() != ErrorLevel {
+		t.Errorf("GetMinLevel failed")
+	}
+
+	debugHandler := NewHandler(DebugLevel, DefaultFormatter)
+	l.AddHandler(debugHandler)
+	if l.GetMinLevel() != InfoLevel {
+		t.Errorf("GetMinLevel failed")
+	}
+}
+
 func TestAddHandler(t *testing.T) {
 	w := NewDiscardWriter()
 
@@ -162,7 +184,7 @@ func TestAddHandler(t *testing.T) {
 	}
 
 	count := len(l.handlers)
-	if count != 4 {
+	if count != 5 {
 		t.Errorf("the logger has %d handlers", count)
 	}
 

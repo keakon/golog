@@ -53,23 +53,22 @@ func NewLogger(lv Level) *Logger {
 }
 
 // AddHandler adds a Handler to the Logger.
-// A handler with lower level than the logger will be ignored.
 func (l *Logger) AddHandler(h *Handler) {
-	if h.level < l.level {
-		return
-	}
-
 	h.isInternal = l.isInternal
 	l.handlers = append(l.handlers, h)
-	if len(l.handlers) > 1 {
-		if h.level < l.minLevel {
+
+	if h.level < l.minLevel {
+		if h.level > l.level {
 			l.minLevel = h.level
+		} else {
+			l.minLevel = l.level
 		}
+	}
+
+	if len(l.handlers) > 1 {
 		sort.Slice(l.handlers, func(i, j int) bool {
 			return l.handlers[i].level < l.handlers[j].level
 		})
-	} else {
-		l.minLevel = h.level
 	}
 }
 

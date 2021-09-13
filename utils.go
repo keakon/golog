@@ -36,6 +36,18 @@ var (
 	fastTimer = FastTimer{}
 )
 
+func init() {
+	for i := 0; i < 60; i++ { // hour / minute / second is between 0 and 59
+		uintBytes2[i] = uint2Bytes(i, 2)
+	}
+	for i := 0; i < 69; i++ { // year is between 1970 and 2038
+		uintBytes4[i] = uint2Bytes(1970+i, 4)
+	}
+	for i := 0; i < 999; i++ { // source code line number is usually between 2 and 1000
+		uintBytes[i] = uint2DynamicBytes(i + 2)
+	}
+}
+
 func uint2Bytes(x, size int) []byte {
 	// x and size should be uint32
 	result := make([]byte, size)
@@ -79,18 +91,6 @@ func uint2DynamicBytes(x int) []byte {
 		x /= 10
 	}
 	return result
-}
-
-func init() {
-	for i := 0; i < 60; i++ { // hour / minute / second is between 0 and 59
-		uintBytes2[i] = uint2Bytes(i, 2)
-	}
-	for i := 0; i < 69; i++ { // year is between 1970 and 2038
-		uintBytes4[i] = uint2Bytes(1970+i, 4)
-	}
-	for i := 0; i < 999; i++ { // source code line number is usually between 2 and 1000
-		uintBytes[i] = uint2DynamicBytes(i + 2)
-	}
 }
 
 func uint2Bytes2(x int) []byte {
@@ -203,7 +203,7 @@ func (t *FastTimer) update(tm time.Time, buf *bytes.Buffer) {
 	t.time = buf.String()
 }
 
-func (t *FastTimer) Start() {
+func (t *FastTimer) start() {
 	buf := bytes.NewBuffer(make([]byte, 0, dateTimeBufSize))
 	t.update(now(), buf)
 	t.isRunning = true
@@ -226,7 +226,7 @@ func (t *FastTimer) Start() {
 	}()
 }
 
-func (t *FastTimer) Stop() {
+func (t *FastTimer) stop() {
 	if t.isRunning {
 		t.stopChan <- struct{}{}
 		t.isRunning = false
@@ -235,10 +235,10 @@ func (t *FastTimer) Stop() {
 
 // StartFastTimer starts the fastTimer.
 func StartFastTimer() {
-	fastTimer.Start()
+	fastTimer.start()
 }
 
 // StopFastTimer stops the fastTimer.
 func StopFastTimer() {
-	fastTimer.Stop()
+	fastTimer.stop()
 }
