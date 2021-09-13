@@ -3,6 +3,7 @@ package golog
 import (
 	"io"
 	"sort"
+	"time"
 )
 
 // Level specifies the log level.
@@ -30,6 +31,7 @@ type Record struct {
 	level   Level
 	date    string
 	time    string
+	tm      time.Time
 	file    string
 	line    int
 	message string
@@ -91,8 +93,12 @@ func (l *Logger) GetMinLevel() Level {
 func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
 	r := recordPool.Get().(*Record)
 	r.level = lv
-	r.time = fastTimer.time
-	r.date = fastTimer.date
+	if fastTimer.isRunning {
+		r.date = fastTimer.date
+		r.time = fastTimer.time
+	} else {
+		r.tm = now()
+	}
 	r.file = file
 	r.line = line
 	r.message = msg

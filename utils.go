@@ -3,12 +3,14 @@ package golog
 import (
 	"bytes"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 )
 
-const recordBufSize = 128
+const (
+	recordBufSize   = 128
+	dateTimeBufSize = 10 // length of date string
+)
 
 var (
 	recordPool = sync.Pool{
@@ -153,10 +155,9 @@ func setNowFunc(nowFunc func() time.Time) {
 	now = nowFunc
 }
 
+// Caller caches the result for runtime.Caller().
+// Inspired by https://zhuanlan.zhihu.com/p/403417640
 func Caller(skip int) (file string, line int) {
-	// cache result for runtime.Caller()
-	// inspired by https://zhuanlan.zhihu.com/p/403417640
-
 	rpc := [1]uintptr{}
 	n := runtime.Callers(skip+2, rpc[:]) // need skip one more stack frame
 	if n < 1 {
@@ -176,21 +177,13 @@ func Caller(skip int) (file string, line int) {
 
 // FastTimer is not thread-safe for performance reason, but all the threads will notice its changes in a few milliseconds.
 type FastTimer struct {
-	date     string
-	time     string
-	stopChan chan struct{}
+	date      string
+	time      string
+	stopChan  chan struct{}
+	isRunning bool
 }
 
-func (t *FastTimer) update(tm time.Time, buf strings.Builder) {
-	buf.Reset()
-	hour, min, sec := tm.Clock()
-	buf.Write(uint2Bytes2(hour))
-	buf.WriteByte(':')
-	buf.Write(uint2Bytes2(min))
-	buf.WriteByte(':')
-	buf.Write(uint2Bytes2(sec))
-	t.time = buf.String()
-
+func (t *FastTimer) update(tm time.Time, buf *bytes.Buffer) {
 	buf.Reset()
 	year, mon, day := tm.Date()
 	buf.Write(uint2Bytes4(year))
@@ -199,11 +192,21 @@ func (t *FastTimer) update(tm time.Time, buf strings.Builder) {
 	buf.WriteByte('-')
 	buf.Write(uint2Bytes2(day))
 	t.date = buf.String()
+
+	buf.Reset()
+	hour, min, sec := tm.Clock()
+	buf.Write(uint2Bytes2(hour))
+	buf.WriteByte(':')
+	buf.Write(uint2Bytes2(min))
+	buf.WriteByte(':')
+	buf.Write(uint2Bytes2(sec))
+	t.time = buf.String()
 }
 
 func (t *FastTimer) Start() {
-	buf := strings.Builder{}
+	buf := bytes.NewBuffer(make([]byte, 0, dateTimeBufSize))
 	t.update(now(), buf)
+	t.isRunning = true
 
 	t.stopChan = make(chan struct{})
 
@@ -224,13 +227,18 @@ func (t *FastTimer) Start() {
 }
 
 func (t *FastTimer) Stop() {
-	t.stopChan <- struct{}{}
+	if t.isRunning {
+		t.stopChan <- struct{}{}
+		t.isRunning = false
+	}
 }
 
+// StartFastTimer starts the fastTimer.
 func StartFastTimer() {
 	fastTimer.Start()
 }
 
+// StopFastTimer stops the fastTimer.
 func StopFastTimer() {
 	fastTimer.Stop()
 }

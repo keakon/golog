@@ -6,7 +6,7 @@ import (
 
 func TestHandle(t *testing.T) {
 	h := NewHandler(InfoLevel, DefaultFormatter)
-	r := &Record{}
+	r := &Record{tm: now()}
 	if h.Handle(r) {
 		t.Error("info handler handled debug record")
 	}

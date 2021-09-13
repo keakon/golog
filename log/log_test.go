@@ -1,4 +1,6 @@
+//go:build !race
 // +build !race
+
 // golog.FastTimer is not thread-safe.
 
 package log
@@ -84,16 +86,11 @@ func TestLogFuncs(t *testing.T) {
 	l.Close()
 }
 
-func BenchmarkBufferedFileLogger(b *testing.B) {
+func BenchmarkDiscardLogger(b *testing.B) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()
 
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
-	w, err := golog.NewBufferedFileWriter(path)
-	if err != nil {
-		b.Error(err)
-	}
+	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
 	h.AddWriter(w)
 	l := golog.NewLogger(golog.InfoLevel)
@@ -110,10 +107,7 @@ func BenchmarkBufferedFileLogger(b *testing.B) {
 	l.Close()
 }
 
-func BenchmarkDiscardLogger(b *testing.B) {
-	golog.StartFastTimer()
-	defer golog.StopFastTimer()
-
+func BenchmarkDiscardLoggerWithoutTimer(b *testing.B) {
 	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
 	h.AddWriter(w)
@@ -185,6 +179,32 @@ func BenchmarkMultiLevels(b *testing.B) {
 			Warnf("test")
 			Errorf("test")
 			Critf("test")
+		}
+	})
+	l.Close()
+}
+
+func BenchmarkBufferedFileLogger(b *testing.B) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	path := filepath.Join(os.TempDir(), "test.log")
+	os.Remove(path)
+	w, err := golog.NewBufferedFileWriter(path)
+	if err != nil {
+		b.Error(err)
+	}
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			Infof("test")
 		}
 	})
 	l.Close()

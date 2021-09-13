@@ -2,8 +2,10 @@ package golog
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -435,7 +437,36 @@ func (w *badWriter) Close() error {
 }
 
 func TestBadWriter(t *testing.T) {
+	path := filepath.Join(os.TempDir(), "error.log")
+	os.Remove(path)
+	w, err := NewBufferedFileWriter(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	newLogger := NewLoggerWithWriter(w)
+	oldLogger := internalLogger
+	SetInternalLogger(newLogger)
+	defer SetInternalLogger(oldLogger)
+
 	l := NewLoggerWithWriter(&badWriter{})
 	l.Log(InfoLevel, "", 0, "test")
 	l.Close()
+
+	time.Sleep(flushDuration * 2)
+
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+	}
+	size := len(content)
+	if size == 0 {
+		t.Error("log is empty")
+		return
+	}
+
+	if !strings.Contains(string(content), io.ErrShortWrite.Error()) {
+		t.Error("bad writer raised no error")
+		return
+	}
 }
