@@ -11,6 +11,44 @@ import (
 	"time"
 )
 
+const maxRetryCount = 10
+
+func checkFileSize(t *testing.T, path string, size int64) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if stat.Size() != size {
+		t.Errorf("file size are %d bytes", stat.Size())
+	}
+}
+
+func checkFileSizeN(t *testing.T, path string, size int64) {
+	for i := 0; i < maxRetryCount; i++ {
+		time.Sleep(flushDuration)
+
+		stat, err := os.Stat(path)
+		if err != nil {
+			if i == maxRetryCount-1 {
+				t.Error(err)
+			} else {
+				continue
+			}
+		}
+
+		if stat.Size() != size {
+			if i == maxRetryCount-1 {
+				t.Errorf("file size are %d bytes", stat.Size())
+			} else {
+				continue
+			}
+		} else {
+			break
+		}
+	}
+}
+
 func TestMain(m *testing.M) {
 	SetInternalLogger(NewStderrLogger())
 	os.Exit(m.Run())
@@ -55,10 +93,18 @@ func TestBufferedFileWriter(t *testing.T) {
 		t.Errorf("read %d bytes", n)
 	}
 
-	time.Sleep(flushDuration * 2)
-	n, err = f.Read(buf)
-	if err != nil {
-		t.Error(err)
+	for i := 0; i < maxRetryCount; i++ {
+		time.Sleep(flushDuration)
+		n, err = f.Read(buf)
+		if err != nil {
+			if i == maxRetryCount-1 {
+				t.Error(err)
+			} else {
+				continue
+			}
+		} else {
+			break
+		}
 	}
 	if n != 4 {
 		t.Errorf("read %d bytes", n)
@@ -86,11 +132,20 @@ func TestBufferedFileWriter(t *testing.T) {
 		t.Errorf("next byte is %d", buf[bufferSize-1])
 	}
 
-	time.Sleep(flushDuration * 2)
-	n, err = f.Read(buf)
-	if err != nil {
-		t.Error(err)
+	for i := 0; i < maxRetryCount; i++ {
+		time.Sleep(flushDuration)
+		n, err = f.Read(buf)
+		if err != nil {
+			if i == maxRetryCount-1 {
+				t.Error(err)
+			} else {
+				continue
+			}
+		} else {
+			break
+		}
 	}
+
 	if n != 1 {
 		t.Errorf("read %d bytes", n)
 	}
@@ -135,73 +190,29 @@ func TestRotatingFileWriter(t *testing.T) {
 		w.Write(bs)
 	}
 
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path, 0)
 
-	stat, err = os.Stat(path + ".1")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 120 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path+".1", 120)
 
 	_, err = os.Stat(path + ".2")
 	if !os.IsNotExist(err) {
 		t.Error(err)
 	}
 
-	time.Sleep(flushDuration * 2)
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 80 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSizeN(t, path, 80)
 
 	// second write
 	for i := 0; i < 20; i++ {
 		w.Write(bs)
 	}
 
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path, 0)
 
-	stat, err = os.Stat(path + ".1")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 120 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path+".1", 120)
 
-	stat, err = os.Stat(path + ".2")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 120 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path+".2", 120)
 
-	time.Sleep(flushDuration * 2)
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 40 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSizeN(t, path, 40)
 
 	w.Close()
 }
@@ -242,70 +253,32 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 		t.Error(err)
 	}
 	path := pathPrefix + "-20181119.log"
-	stat, err := os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path, 0)
 
 	w.Write([]byte("123"))
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path, 0)
 
 	setNow(time.Date(2018, 11, 20, 16, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 4)
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 3 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	time.Sleep(flushDuration * 2)
+	checkFileSizeN(t, path, 3)
 
 	time.Sleep(flushDuration * 2)
 	path = pathPrefix + "-20181120.log"
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSizeN(t, path, 0)
 
 	w.Write([]byte("4567"))
 	setNow(time.Date(2018, 11, 21, 16, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 4)
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 4 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
-	stat, err = os.Stat(pathPrefix + "-20181121.log")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+
+	time.Sleep(flushDuration * 2)
+	checkFileSizeN(t, path, 4)
+
+	time.Sleep(flushDuration * 3)
+	checkFileSizeN(t, path, 4)
+	checkFileSizeN(t, pathPrefix+"-20181121.log", 0)
 
 	setNow(time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 4)
-	stat, err = os.Stat(pathPrefix + "-20181122.log")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	time.Sleep(flushDuration * 3)
+	checkFileSizeN(t, pathPrefix+"-20181121.log", 0)
 	_, err = os.Stat(pathPrefix + "-20181119.log")
 	if !os.IsNotExist(err) {
 		t.Error(err)
@@ -352,70 +325,28 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 		t.Error(err)
 	}
 	path := pathPrefix + "-2018111916.log"
-	stat, err := os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path, 0)
 
 	w.Write([]byte("123"))
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSize(t, path, 0)
 
 	setNow(time.Date(2018, 11, 19, 17, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 4)
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 3 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	time.Sleep(flushDuration * 3)
+	checkFileSizeN(t, path, 3)
 
 	time.Sleep(flushDuration * 3)
 	path = pathPrefix + "-2018111917.log"
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	checkFileSizeN(t, path, 0)
 
 	w.Write([]byte("4567"))
 	setNow(time.Date(2018, 11, 19, 18, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 4)
-	stat, err = os.Stat(path)
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 4 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
-	stat, err = os.Stat(pathPrefix + "-2018111918.log")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	time.Sleep(flushDuration * 3)
+	checkFileSizeN(t, path, 4)
+	checkFileSizeN(t, pathPrefix+"-2018111918.log", 0)
 
 	setNow(time.Date(2018, 11, 22, 16, 12, 34, 56, time.Local))
-	time.Sleep(flushDuration * 5)
-	stat, err = os.Stat(pathPrefix + "-2018112216.log")
-	if err != nil {
-		t.Error(err)
-	}
-	if stat.Size() != 0 {
-		t.Errorf("file size are %d bytes", stat.Size())
-	}
+	time.Sleep(flushDuration * 3)
+	checkFileSizeN(t, pathPrefix+"-2018112216.log", 0)
 	_, err = os.Stat(pathPrefix + "-2018111916.log")
 	if !os.IsNotExist(err) {
 		t.Error(err)
