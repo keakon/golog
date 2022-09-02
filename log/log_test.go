@@ -32,7 +32,8 @@ func errorFunc(args ...interface{}) {
 			return
 		}
 	}
-	_error(args...)
+	file, line := golog.Caller(1)
+	defaultLogger.Log(golog.ErrorLevel, file, line, "", args...)
 }
 
 func errorfFunc(msg string, args ...interface{}) {
@@ -43,7 +44,8 @@ func errorfFunc(msg string, args ...interface{}) {
 			return
 		}
 	}
-	_errorf(msg, args...)
+	file, line := golog.Caller(1)
+	defaultLogger.Log(golog.ErrorLevel, file, line, msg, args...)
 }
 
 func TestSetLogFunc(t *testing.T) {
