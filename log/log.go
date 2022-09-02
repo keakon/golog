@@ -21,41 +21,59 @@ var (
 		golog.ErrorLevel: _errorf,
 		golog.CritLevel:  _critf,
 	}
-	logPtrs = map[golog.Level](*func(args ...interface{})){
-		golog.DebugLevel: &Debug,
-		golog.InfoLevel:  &Info,
-		golog.WarnLevel:  &Warn,
-		golog.ErrorLevel: &Error,
-		golog.CritLevel:  &Crit,
-	}
-	logfPtrs = map[golog.Level](*func(msg string, args ...interface{})){
-		golog.DebugLevel: &Debugf,
-		golog.InfoLevel:  &Infof,
-		golog.WarnLevel:  &Warnf,
-		golog.ErrorLevel: &Errorf,
-		golog.CritLevel:  &Critf,
-	}
 )
+
+// SetLogFunc set the log function with specified level for the defaultLogger.
+// This function should be called before SetDefaultLogger.
+func SetLogFunc(f func(args ...interface{}), level golog.Level) {
+	logFuncs[level] = f
+}
+
+// SetLogfFunc set the logf function with specified level for the defaultLogger.
+// This function should be called before SetDefaultLogger.
+func SetLogfFunc(f func(msg string, args ...interface{}), level golog.Level) {
+	logfFuncs[level] = f
+}
 
 // SetDefaultLogger set the logger as the defaultLogger.
 // The logging functions in this package use it as their logger.
-// This function should be called before using the others.
+// This function should be called before using below functions.
 func SetDefaultLogger(l *golog.Logger) {
 	defaultLogger = l
 
 	minLevel := l.GetMinLevel()
 	for level, f := range logFuncs {
-		if minLevel <= level {
-			*logPtrs[level] = f
-		} else {
-			*logPtrs[level] = nop
+		if minLevel > level {
+			f = nop
+		}
+		switch level {
+		case golog.DebugLevel:
+			Debug = f
+		case golog.InfoLevel:
+			Info = f
+		case golog.WarnLevel:
+			Warn = f
+		case golog.ErrorLevel:
+			Error = f
+		case golog.CritLevel:
+			Crit = f
 		}
 	}
 	for level, f := range logfFuncs {
-		if minLevel <= level {
-			*logfPtrs[level] = f
-		} else {
-			*logfPtrs[level] = nopf
+		if minLevel > level {
+			f = nopf
+		}
+		switch level {
+		case golog.DebugLevel:
+			Debugf = f
+		case golog.InfoLevel:
+			Infof = f
+		case golog.WarnLevel:
+			Warnf = f
+		case golog.ErrorLevel:
+			Errorf = f
+		case golog.CritLevel:
+			Critf = f
 		}
 	}
 }

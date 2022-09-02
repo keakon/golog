@@ -7,6 +7,7 @@ package log
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,6 +24,73 @@ func (w *memoryWriter) Close() error {
 	return nil
 }
 
+func errorFunc(args ...interface{}) {
+	if len(args) == 1 {
+		arg := args[0]
+		if _, ok := arg.(error); ok {
+			// skip
+			return
+		}
+	}
+	_error(args...)
+}
+
+func errorfFunc(msg string, args ...interface{}) {
+	if len(args) == 1 {
+		arg := args[0]
+		if _, ok := arg.(error); ok {
+			// skip
+			return
+		}
+	}
+	_errorf(msg, args...)
+}
+
+func TestSetLogFunc(t *testing.T) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	w := &memoryWriter{}
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+
+	SetLogFunc(errorFunc, golog.ErrorLevel)
+	SetLogfFunc(errorfFunc, golog.ErrorLevel)
+	SetDefaultLogger(l)
+
+	Debug("test")
+	if w.Buffer.Len() != 0 {
+		t.Error("memoryWriter is not empty")
+	}
+	w.Buffer.Reset()
+
+	Error(errors.New("test"))
+	if w.Buffer.Len() != 0 {
+		t.Error("memoryWriter is not empty")
+	}
+
+	Error("test")
+	if w.Buffer.Len() == 0 {
+		t.Error("memoryWriter is empty")
+	}
+	w.Buffer.Reset()
+
+	Errorf("error: %v", errors.New("test"))
+	if w.Buffer.Len() != 0 {
+		t.Error("memoryWriter is not empty")
+	}
+
+	Errorf("error: %s", "test")
+	if w.Buffer.Len() == 0 {
+		t.Error("memoryWriter is empty")
+	}
+	w.Buffer.Reset()
+
+	l.Close()
+}
+
 func TestLogFuncs(t *testing.T) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()
@@ -34,34 +102,34 @@ func TestLogFuncs(t *testing.T) {
 	l.AddHandler(h)
 	SetDefaultLogger(l)
 
-	l.Debug("test")
+	Debug("test")
 	if w.Buffer.Len() != 0 {
 		t.Error("memoryWriter is not empty")
 	}
-	l.Debugf("test")
+	Debugf("test")
 	if w.Buffer.Len() != 0 {
 		t.Error("memoryWriter is not empty")
 	}
 
-	l.Info("test")
+	Info("test")
 	if w.Buffer.Len() == 0 {
 		t.Error("memoryWriter is empty")
 	}
 	w.Buffer.Reset()
 
-	l.Infof("test")
+	Infof("test")
 	if w.Buffer.Len() == 0 {
 		t.Error("memoryWriter is empty")
 	}
 	w.Buffer.Reset()
 
-	l.Error("test")
+	Error("test")
 	if w.Buffer.Len() == 0 {
 		t.Error("memoryWriter is empty")
 	}
 	w.Buffer.Reset()
 
-	l.Errorf("test")
+	Errorf("test")
 	if w.Buffer.Len() == 0 {
 		t.Error("memoryWriter is empty")
 	}
@@ -73,13 +141,13 @@ func TestLogFuncs(t *testing.T) {
 	l.AddHandler(h)
 	SetDefaultLogger(l)
 
-	l.Info("test")
+	Info("test")
 	if w.Buffer.Len() != 0 {
 		t.Error("memoryWriter is not empty")
 	}
 	w.Buffer.Reset()
 
-	l.Error("test")
+	Error("test")
 	if w.Buffer.Len() == 0 {
 		t.Error("memoryWriter is empty")
 	}
