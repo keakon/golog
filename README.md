@@ -125,30 +125,28 @@ The fast timer is about 30% faster than calling time.Time() for each logging rec
 
 ### Platform
 
-```
 go1.19.2 darwin/amd64
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
-```
 
 ### Result
 
 | Name | Time/op | Time (x) | Alloc/op | allocs/op |
 | :--- | :---: | :---: | :---: | :---: |
-| DiscardLogger-12 | 514ns ± 1% | 1.0 | 0B | 0 |
-| DiscardLoggerParallel-12 | 103ns ± 5%  | 1.0 | 0B | 0 |
-| DiscardLoggerWithoutTimer-12 | 715ns ± 1% | 1.39 | 0B | 0 |
-| DiscardLoggerWithoutTimerParallel-12 | 148ns ± 2% | 1.44  | 0B | 0 |
-| NopLog-12 | 514ns ± 1% | 1.0 | 0B | 0 |
-| NopLogParallel-12 | 109ns ± 4% | 1.06 | 0B | 0 |
-| MultiLevels-12 | 2.91µs ± 2% | 5.66 | 0B | 0 |
-| MultiLevelsParallel-12 | 602ns ± 7% | 5.84 | 0B | 0 |
-| BufferedFileLogger-12 |  587ns ± 2% | 1.14 | 0B | 0 |
-| BufferedFileLoggerParallel-12 | 311ns ± 2% | 3.02 | 0B | 0 |
+| DiscardLogger | 483ns ± 1% | 1.00 | 0B | 0 |
+| DiscardLoggerParallel | 89.0ns ± 6% | 1.00 | 0B | 0 |
+| DiscardLoggerWithoutTimer | 691ns ± 7% | 1.43 | 0B | 0 |
+| DiscardLoggerWithoutTimerParallel | 129ns ± 5% | 1.45 | 0B | 0 |
+| NopLog | 496ns ± 2% | 1.03 | 0B | 0 |
+| NopLogParallel | 100ns ±19% | 1.12 | 0B | 0 |
+| MultiLevels | 2.77µs ± 7% | 5.73 | 0B | 0 |
+| MultiLevelsParallel | 532ns ±15% | 5.98 | 0B | 0 |
+| BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
+| BufferedFileLoggerParallel | 260ns ±11% | 2.92 | 0B | 0 |
 | | | | | |
-| DiscardZerolog-12 | 2.32µs ± 2% | 4.51  | 280B | 3 |
-| DiscardZerologParallel-12 | 442ns ± 5% | 4.29 | 280B | 3 |
-| DiscardZap-12 | 2.41µs ± 2% | 4.69 | 313B | 6 |
-| DiscardZapParallel-12 | 652ns ±15% | 6.03 | 314B | 6 |
+| DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
+| DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |
+| DiscardZap | 2.64µs ±21% | 5.47 | 313B | 6 |
+| DiscardZapParallel | 593ns ±14% | 6.66 | 314B | 6 |
 
 ### Example output of the benchmarks
 
