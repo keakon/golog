@@ -123,60 +123,35 @@ The fast timer is about 30% faster than calling time.Time() for each logging rec
 
 ## Benchmarks
 
+### Platform
+
 ```
 go1.19.2 darwin/amd64
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
-
-name                                  time/op
-DiscardLogger-12                       514ns ± 1%
-DiscardLoggerParallel-12               103ns ± 5%
-DiscardLoggerWithoutTimer-12           715ns ± 1%
-DiscardLoggerWithoutTimerParallel-12   148ns ± 2%
-NopLog-12                              514ns ± 1%
-NopLogParallel-12                      109ns ± 4%
-MultiLevels-12                        2.91µs ± 2%
-MultiLevelsParallel-12                 602ns ± 7%
-BufferedFileLogger-12                 1.51ns ± 1%
-BufferedFileLoggerParallel-12         0.25ns ± 5%
-DiscardZerolog-12                     2.32µs ± 2%
-DiscardZerologParallel-12              442ns ± 5%
-DiscardZap-12                         2.41µs ± 2%
-DiscardZapParallel-12                  652ns ±15%
-
-name                                  alloc/op
-DiscardLogger-12                       0.00B
-DiscardLoggerParallel-12               0.00B
-DiscardLoggerWithoutTimer-12           0.00B
-DiscardLoggerWithoutTimerParallel-12   0.00B
-NopLog-12                              0.00B
-NopLogParallel-12                      0.00B
-MultiLevels-12                         0.00B
-MultiLevelsParallel-12                 0.00B
-BufferedFileLogger-12                  0.00B
-BufferedFileLoggerParallel-12          0.00B
-DiscardZerolog-12                       280B ± 0%
-DiscardZerologParallel-12               280B ± 0%
-DiscardZap-12                           313B ± 0%
-DiscardZapParallel-12                   314B ± 0%
-
-name                                  allocs/op
-DiscardLogger-12                        0.00
-DiscardLoggerParallel-12                0.00
-DiscardLoggerWithoutTimer-12            0.00
-DiscardLoggerWithoutTimerParallel-12    0.00
-NopLog-12                               0.00
-NopLogParallel-12                       0.00
-MultiLevels-12                          0.00
-MultiLevelsParallel-12                  0.00
-BufferedFileLogger-12                   0.00
-BufferedFileLoggerParallel-12           0.00
-DiscardZerolog-12                       3.00 ± 0%
-DiscardZerologParallel-12               3.00 ± 0%
-DiscardZap-12                           6.00 ± 0%
-DiscardZapParallel-12                   6.00 ± 0%
 ```
 
-Example output of the benchmarks:
+### Result
+
+| Name | Time/op | Time (x) | Alloc/op | allocs/op |
+| :--- | :---: | :---: | :---: | :---: |
+| DiscardLogger-12 | 514ns ± 1% | 1.0 | 0B | 0 |
+| DiscardLoggerParallel-12 | 103ns ± 5%  | 1.0 | 0B | 0 |
+| DiscardLoggerWithoutTimer-12 | 715ns ± 1% | 1.39 | 0B | 0 |
+| DiscardLoggerWithoutTimerParallel-12 | 148ns ± 2% | 1.44  | 0B | 0 |
+| NopLog-12 | 514ns ± 1% | 1.0 | 0B | 0 |
+| NopLogParallel-12 | 109ns ± 4% | 1.06 | 0B | 0 |
+| MultiLevels-12 | 2.91µs ± 2% | 5.66 | 0B | 0 |
+| MultiLevelsParallel-12 | 602ns ± 7% | 5.84 | 0B | 0 |
+| BufferedFileLogger-12 |  587ns ± 2% | 1.14 | 0B | 0 |
+| BufferedFileLoggerParallel-12 | 311ns ± 2% | 3.02 | 0B | 0 |
+| | | | | |
+| DiscardZerolog-12 | 2.32µs ± 2% | 4.51  | 280B | 3 |
+| DiscardZerologParallel-12 | 442ns ± 5% | 4.29 | 280B | 3 |
+| DiscardZap-12 | 2.41µs ± 2% | 4.69 | 313B | 6 |
+| DiscardZapParallel-12 | 652ns ±15% | 6.03 | 314B | 6 |
+
+### Example output of the benchmarks
+
 ```
 [I 2018-11-20 17:05:37 log_test:118] test
 ```
