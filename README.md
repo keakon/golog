@@ -114,7 +114,7 @@ The fast timer is about 30% faster than calling time.Time() for each logging rec
 [I 2021-09-13 14:31:24 log_test:206] test
 [I 2021-09-13 14:31:25 log_test:206] test
 ```
-3. When the day changing, the logging date and time might from different day. eg:
+3. When the day changing, the logging date and time might belong to different day. eg:
 ```
 [I 2021-09-12 23:59:59 log_test:206] test
 [I 2021-09-13 23:59:59 log_test:206] test
@@ -124,17 +124,56 @@ The fast timer is about 30% faster than calling time.Time() for each logging rec
 ## Benchmarks
 
 ```
-go1.17 darwin/amd64
+go1.19.2 darwin/amd64
 cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 
-BenchmarkDiscardLogger-12                 13788436       77.83 ns/op       0 B/op      0 allocs/op
-BenchmarkDiscardLoggerWithoutTimer-12     10472464       112.1 ns/op       0 B/op      0 allocs/op
-BenchmarkNopLog-12                      1000000000      0.1918 ns/op       0 B/op      0 allocs/op
-BenchmarkMultiLevels-12                    3922504       304.8 ns/op       0 B/op      0 allocs/op
-BenchmarkBufferedFileLogger-12             4937521       251.7 ns/op       0 B/op      0 allocs/op
+name                                  time/op
+DiscardLogger-12                       514ns ± 1%
+DiscardLoggerParallel-12               103ns ± 5%
+DiscardLoggerWithoutTimer-12           715ns ± 1%
+DiscardLoggerWithoutTimerParallel-12   148ns ± 2%
+NopLog-12                              514ns ± 1%
+NopLogParallel-12                      109ns ± 4%
+MultiLevels-12                        2.91µs ± 2%
+MultiLevelsParallel-12                 602ns ± 7%
+BufferedFileLogger-12                 1.51ns ± 1%
+BufferedFileLoggerParallel-12         0.25ns ± 5%
+DiscardZerolog-12                     2.32µs ± 2%
+DiscardZerologParallel-12              442ns ± 5%
+DiscardZap-12                         2.41µs ± 2%
+DiscardZapParallel-12                  652ns ±15%
 
-BenchmarkDiscardZerolog-12                 4074019       289.8 ns/op     280 B/op      3 allocs/op
-BenchmarkDiscardZap-12                     2908678       409.8 ns/op     321 B/op      7 allocs/op
+name                                  alloc/op
+DiscardLogger-12                       0.00B
+DiscardLoggerParallel-12               0.00B
+DiscardLoggerWithoutTimer-12           0.00B
+DiscardLoggerWithoutTimerParallel-12   0.00B
+NopLog-12                              0.00B
+NopLogParallel-12                      0.00B
+MultiLevels-12                         0.00B
+MultiLevelsParallel-12                 0.00B
+BufferedFileLogger-12                  0.00B
+BufferedFileLoggerParallel-12          0.00B
+DiscardZerolog-12                       280B ± 0%
+DiscardZerologParallel-12               280B ± 0%
+DiscardZap-12                           313B ± 0%
+DiscardZapParallel-12                   314B ± 0%
+
+name                                  allocs/op
+DiscardLogger-12                        0.00
+DiscardLoggerParallel-12                0.00
+DiscardLoggerWithoutTimer-12            0.00
+DiscardLoggerWithoutTimerParallel-12    0.00
+NopLog-12                               0.00
+NopLogParallel-12                       0.00
+MultiLevels-12                          0.00
+MultiLevelsParallel-12                  0.00
+BufferedFileLogger-12                   0.00
+BufferedFileLoggerParallel-12           0.00
+DiscardZerolog-12                       3.00 ± 0%
+DiscardZerologParallel-12               3.00 ± 0%
+DiscardZap-12                           6.00 ± 0%
+DiscardZapParallel-12                   6.00 ± 0%
 ```
 
 Example output of the benchmarks:

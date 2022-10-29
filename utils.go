@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"sync"
 	"time"
+	_ "unsafe"
 )
 
 const (
@@ -155,11 +156,15 @@ func setNowFunc(nowFunc func() time.Time) {
 	now = nowFunc
 }
 
+//go:noescape
+//go:linkname callers runtime.callers
+func callers(skip int, pcbuf []uintptr) int
+
 // Caller caches the result for runtime.Caller().
 // Inspired by https://zhuanlan.zhihu.com/p/403417640
 func Caller(skip int) (file string, line int) {
 	rpc := [1]uintptr{}
-	n := runtime.Callers(skip+2, rpc[:]) // need skip one more stack frame
+	n := callers(skip+1, rpc[:])
 	if n < 1 {
 		return
 	}
