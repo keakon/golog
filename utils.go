@@ -224,6 +224,9 @@ func (t *FastTimer) start() {
 			case tm := <-ticker.C:
 				t.update(tm, buf)
 			case <-t.stopChan:
+				defer func() {
+					recover() // t.stopChan might be closed twice during exiting
+				}()
 				close(t.stopChan)
 				return
 			}
