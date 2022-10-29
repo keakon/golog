@@ -224,9 +224,7 @@ func (t *FastTimer) start() {
 			case tm := <-ticker.C:
 				t.update(tm, buf)
 			case <-t.stopChan:
-				defer func() {
-					recover() // t.stopChan might be closed twice during exiting
-				}()
+				defer func() { recover() }() // t.stopChan might be closed twice during exiting
 				close(t.stopChan)
 				return
 			}
@@ -236,6 +234,7 @@ func (t *FastTimer) start() {
 
 func (t *FastTimer) stop() {
 	if t.isRunning {
+		defer func() { recover() }() // t.stopChan might be closed during exiting
 		t.stopChan <- struct{}{}
 		t.isRunning = false
 	}
