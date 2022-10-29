@@ -7,9 +7,9 @@ import (
 
 // A Handler is a leveled log handler with a formatter and several writers.
 type Handler struct {
-	level      Level
-	formatter  *Formatter
 	writers    []io.WriteCloser
+	formatter  *Formatter
+	level      Level
 	isInternal bool
 }
 

@@ -28,21 +28,21 @@ var (
 
 // A Record is an item which contains required context for the logger.
 type Record struct {
-	level   Level
 	date    string
 	time    string
-	tm      time.Time
 	file    string
-	line    int
 	message string
 	args    []interface{}
+	tm      time.Time
+	line    int
+	level   Level
 }
 
 // A Logger is a leveled logger with several handlers.
 type Logger struct {
+	handlers   []*Handler
 	level      Level // the lowest acceptable level
 	minLevel   Level // the min level of its handlers
-	handlers   []*Handler
 	isInternal bool
 }
 
