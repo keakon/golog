@@ -200,7 +200,7 @@ func TestCloseLogger(t *testing.T) {
 	l.Close()
 	l.Close()
 
-	l = NewStderrLogger()
+	l = NewStdoutLogger()
 	h := l.handlers[0]
 	w := h.writers[0].(*ConsoleWriter)
 	l.Close()

@@ -72,15 +72,15 @@ func uint2DynamicBytes(x int) []byte {
 		size = 3
 	case x < 10000:
 		size = 4
-	case x < 10000:
-		size = 5
-	case x < 10000:
-		size = 6
 	case x < 100000:
-		size = 7
+		size = 5
 	case x < 1000000:
-		size = 8
+		size = 6
 	case x < 10000000:
+		size = 7
+	case x < 100000000:
+		size = 8
+	case x < 1000000000:
 		size = 9
 	default:
 		size = 10
@@ -114,15 +114,15 @@ func fastUint2DynamicBytes(x int) []byte {
 		return uintBytes[x-2]
 	case x < 10000:
 		size = 4
-	case x < 10000:
-		size = 5
-	case x < 10000:
-		size = 6
 	case x < 100000:
-		size = 7
+		size = 5
 	case x < 1000000:
-		size = 8
+		size = 6
 	case x < 10000000:
+		size = 7
+	case x < 100000000:
+		size = 8
+	case x < 1000000000:
 		size = 9
 	default:
 		size = 10

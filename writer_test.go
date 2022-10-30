@@ -173,6 +173,16 @@ func TestRotatingFileWriter(t *testing.T) {
 		t.Error(err)
 	}
 
+	_, err = NewRotatingFileWriter(path, 0, 2)
+	if err == nil {
+		t.Errorf("NewRotatingFileWriter with maxSize 0 is invalid")
+	}
+
+	_, err = NewRotatingFileWriter(path, 128, 0)
+	if err == nil {
+		t.Errorf("NewRotatingFileWriter with backupCount 0 is invalid")
+	}
+
 	w, err := NewRotatingFileWriter(path, 128, 2)
 	if err != nil {
 		t.Error(err)
@@ -261,6 +271,11 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 	oldNextRotateDuration := nextRotateDuration
 	nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 		return flushDuration * 3
+	}
+
+	_, err = NewTimedRotatingFileWriter(pathPrefix, RotateByDate, 0)
+	if err == nil {
+		t.Errorf("NewTimedRotatingFileWriter with backupCount 0 is invalid")
 	}
 
 	w, err := NewTimedRotatingFileWriter(pathPrefix, RotateByDate, 2)
@@ -414,5 +429,14 @@ func TestBadWriter(t *testing.T) {
 	if !strings.Contains(string(content), io.ErrShortWrite.Error()) {
 		t.Error("bad writer raised no error")
 		return
+	}
+}
+
+func TestNextRotateDuration(t *testing.T) {
+	if nextRotateDuration(RotateByDate) > time.Hour*24 {
+		t.Errorf("nextRotateDuration(RotateByDate) longer than 1 day")
+	}
+	if nextRotateDuration(RotateByHour) > time.Hour {
+		t.Errorf("nextRotateDuration(RotateByHour) longer than 1 hour")
 	}
 }
