@@ -20,7 +20,7 @@ func checkFileSize(t *testing.T, path string, size int64) {
 	}
 
 	if stat.Size() != size {
-		t.Errorf("file size are %d bytes", stat.Size())
+		t.Fatalf("file size are %d bytes", stat.Size())
 	}
 }
 
@@ -192,14 +192,14 @@ func TestRotatingFileWriter(t *testing.T) {
 
 	checkFileSize(t, path, 0)
 
-	checkFileSize(t, path+".1", 120)
+	checkFileSize(t, path+".1", 130)
 
 	_, err = os.Stat(path + ".2")
 	if !os.IsNotExist(err) {
 		t.Error(err)
 	}
 
-	checkFileSizeN(t, path, 80)
+	checkFileSizeN(t, path, 70)
 
 	// second write
 	for i := 0; i < 20; i++ {
@@ -207,12 +207,27 @@ func TestRotatingFileWriter(t *testing.T) {
 	}
 
 	checkFileSize(t, path, 0)
+	checkFileSize(t, path+".1", 130)
+	checkFileSize(t, path+".2", 130)
+	checkFileSizeN(t, path, 10)
 
-	checkFileSize(t, path+".1", 120)
+	bs = make([]byte, 200)
+	for i := 0; i < 200; i++ {
+		bs[i] = '1'
+	}
+	w.Write(bs)
 
-	checkFileSize(t, path+".2", 120)
+	checkFileSize(t, path, 0)
+	checkFileSize(t, path+".1", 210)
+	checkFileSize(t, path+".2", 130)
+	checkFileSizeN(t, path, 0)
 
-	checkFileSizeN(t, path, 40)
+	w.Write(bs)
+
+	checkFileSize(t, path, 0)
+	checkFileSize(t, path+".1", 200)
+	checkFileSize(t, path+".2", 210)
+	checkFileSizeN(t, path, 0)
 
 	w.Close()
 }

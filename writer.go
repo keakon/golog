@@ -88,8 +88,8 @@ type BufferedFileWriter struct {
 	writer     *os.File
 	buffer     *bufio.Writer
 	locker     sync.Mutex
-	updateChan chan struct{}
 	stopChan   chan struct{}
+	updateChan chan struct{}
 	updated    bool
 }
 
@@ -114,6 +114,7 @@ func (w *BufferedFileWriter) schedule() {
 	for {
 		select {
 		case <-w.updateChan:
+			// something has been written to the buffer, it can be flushed to the file later
 			stopTimer(timer)
 			timer.Reset(flushDuration)
 		case <-w.stopChan:
@@ -144,7 +145,7 @@ func (w *BufferedFileWriter) schedule() {
 func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	w.locker.Lock()
 	n, err = w.buffer.Write(p)
-	if !w.updated && n > 0 && w.buffer.Buffered() > 0 {
+	if !w.updated && n > 0 && w.buffer.Buffered() > 0 { // check w.updated to prevent notifying w.updateChan twice
 		w.updated = true
 		w.updateChan <- struct{}{}
 	}
@@ -225,39 +226,27 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*Rot
 
 // Write writes a byte slice to the buffer and rotates if reaching its maxSize.
 func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
-	length := uint64(len(p))
 	w.locker.Lock()
 	defer w.locker.Unlock()
 
-	if length >= w.maxSize {
-		err = w.rotate()
-		if err != nil {
-			return
-		}
+	n, err = w.buffer.Write(p)
+	if n > 0 {
+		w.pos += uint64(n)
 
-		n, err = w.buffer.Write(p)
-		if err != nil {
-			w.pos = uint64(n)
-			return
-		}
-
-		err = w.rotate()
-	} else {
-		pos := w.pos + length
-		if pos > w.maxSize {
-			err = w.rotate()
-			if err != nil {
-				return
+		if w.pos >= w.maxSize {
+			e := w.rotate()
+			if e != nil {
+				logError(e)
+				if err == nil { // don't shadow Write() error
+					err = e
+				}
 			}
+			return // w.rotate() also calls w.buffer.Flush(), no need to notify w.updateChan
 		}
 
-		n, err = w.buffer.Write(p)
-		if n > 0 {
-			w.pos += uint64(n)
-			if !w.updated && w.buffer.Buffered() > 0 {
-				w.updated = true
-				w.updateChan <- struct{}{}
-			}
+		if !w.updated && w.buffer.Buffered() > 0 {
+			w.updated = true
+			w.updateChan <- struct{}{}
 		}
 	}
 
