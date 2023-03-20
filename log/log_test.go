@@ -58,9 +58,9 @@ func TestSetLogFunc(t *testing.T) {
 	l := golog.NewLogger(golog.InfoLevel)
 	l.AddHandler(h)
 
+	SetDefaultLogger(l)
 	SetLogFunc(errorFunc, golog.ErrorLevel)
 	SetLogfFunc(errorfFunc, golog.ErrorLevel)
-	SetDefaultLogger(l)
 
 	Debug("test")
 	if w.Buffer.Len() != 0 {

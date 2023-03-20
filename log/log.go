@@ -46,32 +46,43 @@ func SetLogfFunc(f func(msg string, args ...interface{}), level golog.Level) {
 func SetDefaultLogger(l *golog.Logger) {
 	defaultLogger = l
 	minLevel := l.GetMinLevel()
-	for level := golog.DebugLevel; level < minLevel; level++ {
-		switch level {
-		case golog.DebugLevel:
-			Debug = nop
-		case golog.InfoLevel:
-			Info = nop
-		case golog.WarnLevel:
-			Warn = nop
-		case golog.ErrorLevel:
-			Error = nop
-		case golog.CritLevel:
-			Crit = nop
-		}
-	}
-	for level := golog.DebugLevel; level < minLevel; level++ {
-		switch level {
-		case golog.DebugLevel:
-			Debugf = nopf
-		case golog.InfoLevel:
-			Infof = nopf
-		case golog.WarnLevel:
-			Warnf = nopf
-		case golog.ErrorLevel:
-			Errorf = nopf
-		case golog.CritLevel:
-			Critf = nopf
+	for level := golog.DebugLevel; level <= golog.CritLevel; level++ {
+		if level < minLevel {
+			switch level {
+			case golog.DebugLevel:
+				Debug = nop
+				Debugf = nopf
+			case golog.InfoLevel:
+				Info = nop
+				Infof = nopf
+			case golog.WarnLevel:
+				Warn = nop
+				Warnf = nopf
+			case golog.ErrorLevel:
+				Error = nop
+				Errorf = nopf
+			case golog.CritLevel:
+				Crit = nop
+				Critf = nopf
+			}
+		} else {
+			switch level {
+			case golog.DebugLevel:
+				Debug = logFuncs[level]
+				Debugf = logfFuncs[level]
+			case golog.InfoLevel:
+				Info = logFuncs[level]
+				Infof = logfFuncs[level]
+			case golog.WarnLevel:
+				Warn = logFuncs[level]
+				Warnf = logfFuncs[level]
+			case golog.ErrorLevel:
+				Error = logFuncs[level]
+				Errorf = logfFuncs[level]
+			case golog.CritLevel:
+				Crit = logFuncs[level]
+				Critf = logfFuncs[level]
+			}
 		}
 	}
 }
@@ -79,62 +90,72 @@ func SetDefaultLogger(l *golog.Logger) {
 func nop(args ...interface{})              {}
 func nopf(msg string, args ...interface{}) {}
 
-// Debug logs a _debug level message. It uses fmt.Fprint() to format args.
-var Debug = func(args ...interface{}) {
-	file, line := golog.Caller(1) // deeper caller will be more expensive
-	defaultLogger.Log(golog.DebugLevel, file, line, "", args...)
-}
+var (
+	// Debug logs a _debug level message. It uses fmt.Fprint() to format args.
+	Debug = nop
+	// Info logs a _info level message. It uses fmt.Fprint() to format args.
+	Info = nop
+	// Warn logs a _warning level message. It uses fmt.Fprint() to format args.
+	Warn = nop
+	// Error logs an _error level message. It uses fmt.Fprint() to format args.
+	Error = nop
+	// Crit logs a _critical level message. It uses fmt.Fprint() to format args.
+	Crit = nop
 
-// Debugf logs a _debug level message. It uses fmt.Fprintf() to format msg and args.
-var Debugf = func(msg string, args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.DebugLevel, file, line, msg, args...)
-}
+	// Debugf logs a _debug level message. It uses fmt.Fprintf() to format msg and args.
+	Debugf = nopf
+	// Infof logs a _info level message. It uses fmt.Fprintf() to format msg and args.
+	Infof = nopf
+	// Warnf logs a _warning level message. It uses fmt.Fprintf() to format msg and args.
+	Warnf = nopf
+	// Errorf logs a _error level message. It uses fmt.Fprintf() to format msg and args.
+	Errorf = nopf
+	// Critf logs a _critical level message. It uses fmt.Fprintf() to format msg and args.
+	Critf = nopf
 
-// Info logs a _info level message. It uses fmt.Fprint() to format args.
-var Info = func(args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.InfoLevel, file, line, "", args...)
-}
+	logFuncs = []func(args ...interface{}){
+		func(args ...interface{}) {
+			file, line := golog.Caller(1) // deeper caller will be more expensive, so don't use init() to initialize those functions
+			defaultLogger.Log(golog.DebugLevel, file, line, "", args...)
+		},
+		func(args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.InfoLevel, file, line, "", args...)
+		},
+		func(args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.WarnLevel, file, line, "", args...)
+		},
+		func(args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.ErrorLevel, file, line, "", args...)
+		},
+		func(args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.CritLevel, file, line, "", args...)
+		},
+	}
 
-// Infof logs a _info level message. It uses fmt.Fprintf() to format msg and args.
-var Infof = func(msg string, args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.InfoLevel, file, line, msg, args...)
-}
-
-// Warn logs a _warning level message. It uses fmt.Fprint() to format args.
-var Warn = func(args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.WarnLevel, file, line, "", args...)
-}
-
-// Warnf logs a _warning level message. It uses fmt.Fprintf() to format msg and args.
-var Warnf = func(msg string, args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.WarnLevel, file, line, msg, args...)
-}
-
-// Error logs an _error level message. It uses fmt.Fprint() to format args.
-var Error = func(args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.ErrorLevel, file, line, "", args...)
-}
-
-// Errorf logs a _error level message. It uses fmt.Fprintf() to format msg and args.
-var Errorf = func(msg string, args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.ErrorLevel, file, line, msg, args...)
-}
-
-// Crit logs a _critical level message. It uses fmt.Fprint() to format args.
-var Crit = func(args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.CritLevel, file, line, "", args...)
-}
-
-// Critf logs a _critical level message. It uses fmt.Fprintf() to format msg and args.
-var Critf = func(msg string, args ...interface{}) {
-	file, line := golog.Caller(1)
-	defaultLogger.Log(golog.CritLevel, file, line, msg, args...)
-}
+	logfFuncs = []func(msg string, args ...interface{}){
+		func(msg string, args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.DebugLevel, file, line, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.InfoLevel, file, line, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.WarnLevel, file, line, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.ErrorLevel, file, line, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			file, line := golog.Caller(1)
+			defaultLogger.Log(golog.CritLevel, file, line, msg, args...)
+		},
+	}
+)

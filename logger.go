@@ -41,8 +41,8 @@ type Record struct {
 // A Logger is a leveled logger with several handlers.
 type Logger struct {
 	handlers   []*Handler
-	minLevel   Level // the min level of its handlers
-	level      Level // the lowest acceptable level
+	minLevel   Level // the min level of the logger and its handlers
+	level      Level // the lowest acceptable level of the logger
 	isInternal bool
 }
 
@@ -57,18 +57,17 @@ func (l *Logger) AddHandler(h *Handler) {
 	h.isInternal = l.isInternal
 	l.handlers = append(l.handlers, h)
 
-	if h.level < l.minLevel {
-		if h.level > l.level {
-			l.minLevel = h.level
-		} else {
-			l.minLevel = l.level
-		}
-	}
-
 	if len(l.handlers) > 1 {
 		sort.Slice(l.handlers, func(i, j int) bool {
 			return l.handlers[i].level < l.handlers[j].level
 		})
+	}
+
+	minLevel := l.handlers[0].level
+	if l.level >= minLevel {
+		l.minLevel = l.level
+	} else {
+		l.minLevel = minLevel
 	}
 }
 
@@ -205,7 +204,7 @@ func (l *Logger) Critf(msg string, args ...interface{}) {
 func NewLoggerWithWriter(w io.WriteCloser) *Logger {
 	h := NewHandler(InfoLevel, DefaultFormatter)
 	h.AddWriter(w)
-	l := &Logger{level: InfoLevel, minLevel: disabledLevel}
+	l := NewLogger(InfoLevel)
 	l.AddHandler(h)
 	return l
 }
