@@ -59,6 +59,11 @@ func TestUint2DynamicBytes(t *testing.T) {
 		t.Errorf("result is " + bs)
 	}
 
+	bs = string(uint2DynamicBytes(999))
+	if bs != "999" {
+		t.Errorf("result is " + bs)
+	}
+
 	bs = string(uint2DynamicBytes(1000))
 	if bs != "1000" {
 		t.Errorf("result is " + bs)
@@ -118,6 +123,11 @@ func TestFastUint2DynamicBytes(t *testing.T) {
 
 	bs = string(fastUint2DynamicBytes(59))
 	if bs != "59" {
+		t.Errorf("result is " + bs)
+	}
+
+	bs = string(fastUint2DynamicBytes(999))
+	if bs != "999" {
 		t.Errorf("result is " + bs)
 	}
 

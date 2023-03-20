@@ -215,3 +215,16 @@ func TestCloseLogger(t *testing.T) {
 	}
 	l.Close()
 }
+
+func TestNewStdoutLogger(t *testing.T) {
+	l := NewStdoutLogger()
+	if l.IsEnabledFor(DebugLevel) {
+		t.Error("stdout logger is enabled for debug level")
+	}
+	if !l.IsEnabledFor(InfoLevel) {
+		t.Error("stdout logger is not enabled for info level")
+	}
+	if !l.IsEnabledFor(ErrorLevel) {
+		t.Error("stdout logger is not enabled for error level")
+	}
+}
