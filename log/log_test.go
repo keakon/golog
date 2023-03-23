@@ -156,6 +156,25 @@ func TestLogFuncs(t *testing.T) {
 	l.Close()
 }
 
+func TestIsEnabledFor(t *testing.T) {
+	SetDefaultLogger(nil)
+	if IsEnabledFor(golog.DebugLevel) {
+		t.Error("nil logger is enabled for debug level")
+	}
+
+	l := golog.NewStdoutLogger()
+	SetDefaultLogger(l)
+	if IsEnabledFor(golog.DebugLevel) {
+		t.Error("info logger is enabled for debug level")
+	}
+	if !IsEnabledFor(golog.InfoLevel) {
+		t.Error("info logger is disabled for info level")
+	}
+	if !IsEnabledFor(golog.ErrorLevel) {
+		t.Error("info logger is disabled for error level")
+	}
+}
+
 func BenchmarkDiscardLogger(b *testing.B) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()

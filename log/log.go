@@ -45,6 +45,9 @@ func SetLogfFunc(f func(msg string, args ...interface{}), level golog.Level) {
 // This function should be called before using below functions.
 func SetDefaultLogger(l *golog.Logger) {
 	defaultLogger = l
+	if l == nil {
+		return
+	}
 	minLevel := l.GetMinLevel()
 	for level := golog.DebugLevel; level <= golog.CritLevel; level++ {
 		if level < minLevel {
@@ -85,6 +88,11 @@ func SetDefaultLogger(l *golog.Logger) {
 			}
 		}
 	}
+}
+
+// IsEnabledFor returns whether the default logger is enabled for the level.
+func IsEnabledFor(level golog.Level) bool {
+	return defaultLogger != nil && defaultLogger.IsEnabledFor(level)
 }
 
 func nop(args ...interface{})              {}

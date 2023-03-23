@@ -71,7 +71,7 @@ func (l *Logger) AddHandler(h *Handler) {
 	}
 }
 
-// IsEnabledFor returns whether it's enabled for the level
+// IsEnabledFor returns whether it's enabled for the level.
 func (l *Logger) IsEnabledFor(level Level) bool {
 	return l.minLevel <= level
 }
