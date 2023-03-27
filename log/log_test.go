@@ -250,9 +250,6 @@ func BenchmarkDiscardLoggerWithoutTimerParallel(b *testing.B) {
 }
 
 func BenchmarkNopLog(b *testing.B) {
-	golog.StartFastTimer()
-	defer golog.StopFastTimer()
-
 	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
 	h.AddWriter(w)
@@ -263,15 +260,12 @@ func BenchmarkNopLog(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		Infof("test")
+		Debugf("test")
 	}
 	l.Close()
 }
 
 func BenchmarkNopLogParallel(b *testing.B) {
-	golog.StartFastTimer()
-	defer golog.StopFastTimer()
-
 	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
 	h.AddWriter(w)
@@ -283,7 +277,7 @@ func BenchmarkNopLogParallel(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			Infof("test")
+			Debugf("test")
 		}
 	})
 	l.Close()

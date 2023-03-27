@@ -136,8 +136,8 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | DiscardLoggerParallel | 89.0ns ± 6% | 1.00 | 0B | 0 |
 | DiscardLoggerWithoutTimer | 691ns ± 7% | 1.43 | 0B | 0 |
 | DiscardLoggerWithoutTimerParallel | 129ns ± 5% | 1.45 | 0B | 0 |
-| NopLog | 496ns ± 2% | 1.03 | 0B | 0 |
-| NopLogParallel | 100ns ±19% | 1.12 | 0B | 0 |
+| NopLog | 1.5ns ±1% | 0.003 | 0B | 0 |
+| NopLogParallel | 0.22ns ± 3% | 0.002 | 0B | 0 |
 | MultiLevels | 2.77µs ± 7% | 5.73 | 0B | 0 |
 | MultiLevelsParallel | 532ns ±15% | 5.98 | 0B | 0 |
 | BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
@@ -145,10 +145,18 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | | | | | |
 | DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
 | DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |
-| DiscardZap | 2.64µs ±21% | 5.47 | 313B | 6 |
-| DiscardZapParallel | 593ns ±14% | 6.66 | 314B | 6 |
+| DiscardZap | 2.13µs ±0% | 4.41 | 272B | 5 |
+| DiscardZapParallel | 465ns ±5% | 5.22 | 274B | 5 |
 
-### Example output of the benchmarks
+* DiscardLogger: writes logs to ioutil.Discard
+* DiscardLoggerWithoutTimer: the same as above but without fast timer
+* NopLog: skips logs with lower level than the logger or handler
+* MultiLevels: writes 5 levels of logs to 5 levels handlers of a warning level logger
+* BufferedFileLogger: writes logs to a disk file
+* DiscardZerolog: writes logs to ioutil.Discard with [zerolog](https://github.com/rs/zerolog)
+* DiscardZap: writes logs to ioutil.Discard with [zap](https://github.com/uber-go/zap) using `zap.NewProductionEncoderConfig()`
+
+All the logs include 4 parts: level, time, caller and message. This is an example output of the benchmarks:
 
 ```
 [I 2018-11-20 17:05:37 log_test:118] test
