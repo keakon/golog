@@ -57,11 +57,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestBufferedFileWriter(t *testing.T) {
-	oldBufferSize := bufferSize
-	bufferSize = 1024
+	const bufferSize = 1024
+
 	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
-	w, err := NewBufferedFileWriter(path)
+	w, err := NewBufferedFileWriter(path, BufferSize(bufferSize))
 	if err != nil {
 		t.Error(err)
 	}
@@ -160,7 +160,6 @@ func TestBufferedFileWriter(t *testing.T) {
 
 	f.Close()
 	w.Close()
-	bufferSize = oldBufferSize
 }
 
 func TestRotatingFileWriter(t *testing.T) {

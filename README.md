@@ -107,7 +107,7 @@ func main() {
 }
 ```
 
-The fast timer is about 30% faster than calling time.Time() for each logging record. But it's not thread-safe which may cause some problems (I think those are neglectable in most cases):
+The fast timer is about 30% faster than calling time.Time() for each logging record. But it's not thread-safe which may cause some problems (I think those are negligible in most cases):
 1. The timer updates every 1 second, so the logging time can be at most 1 second behind the real time.
 2. Each thread will notice the changes of timer in a few milliseconds, so the concurrent logging messages may get different logging time (less than 2% probability). eg:
 ```
