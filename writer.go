@@ -29,7 +29,7 @@ const (
 	RotateByHour
 )
 
-var bufferSize = 1024 * 1024 * 4
+const defaultBufferSize = 1024 * 1024 * 4
 
 // RotateDuration specifies rotate duration type, should be either RotateByDate or RotateByHour.
 type RotateDuration uint8
@@ -50,7 +50,7 @@ func (w *DiscardWriter) Close() error {
 	return nil
 }
 
-// A ConsoleWriter is a writer which should not be acturelly closed.
+// A ConsoleWriter is a writer which should not be actually closed.
 type ConsoleWriter struct {
 	*os.File // faster than io.Writer
 }
@@ -81,11 +81,23 @@ func NewFileWriter(path string) (*os.File, error) {
 	return os.OpenFile(path, fileFlag, fileMode)
 }
 
+type BufferedFileWriterOption func(*BufferedFileWriter)
+
+// BufferSize sets the buffer size.
+func BufferSize(size uint32) BufferedFileWriterOption {
+	return func(w *BufferedFileWriter) {
+		if size >= 1024 {
+			w.bufferSize = size
+		}
+	}
+}
+
 // A BufferedFileWriter is a buffered file writer.
 // The written bytes will be flushed to the log file every 0.1 second,
 // or when reaching the buffer capacity (4 MB).
 type BufferedFileWriter struct {
 	writer     *os.File
+	bufferSize uint32
 	buffer     *bufio.Writer
 	lock       sync.Mutex
 	stopChan   chan struct{}
@@ -94,17 +106,23 @@ type BufferedFileWriter struct {
 }
 
 // NewBufferedFileWriter creates a new BufferedFileWriter.
-func NewBufferedFileWriter(path string) (*BufferedFileWriter, error) {
+func NewBufferedFileWriter(path string, options ...BufferedFileWriterOption) (*BufferedFileWriter, error) {
 	f, err := os.OpenFile(path, fileFlag, fileMode)
 	if err != nil {
 		return nil, err
 	}
 	w := &BufferedFileWriter{
 		writer:     f,
-		buffer:     bufio.NewWriterSize(f, bufferSize),
+		bufferSize: defaultBufferSize,
 		updateChan: make(chan struct{}, 1),
 		stopChan:   make(chan struct{}),
 	}
+
+	for _, option := range options {
+		option(w)
+	}
+	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
+
 	go w.schedule()
 	return w, nil
 }
@@ -186,8 +204,26 @@ type RotatingFileWriter struct {
 	backupCount uint8
 }
 
+// type RotatingFileWriterOption func(*RotatingFileWriter)
+
+// func RotatingSize(size uint64) RotatingFileWriterOption {
+// 	return func(w *RotatingFileWriter) {
+// 		if size > 0 {
+// 			w.maxSize = size
+// 		}
+// 	}
+// }
+
+// func BackupCount(count uint8) RotatingFileWriterOption {
+// 	return func(w *RotatingFileWriter) {
+// 		if count > 0 {
+// 			w.backupCount = count
+// 		}
+// 	}
+// }
+
 // NewRotatingFileWriter creates a new RotatingFileWriter.
-func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*RotatingFileWriter, error) {
+func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8, options ...BufferedFileWriterOption) (*RotatingFileWriter, error) {
 	if maxSize == 0 {
 		return nil, errors.New("maxSize cannot be 0")
 	}
@@ -213,7 +249,7 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*Rot
 	w := RotatingFileWriter{
 		BufferedFileWriter: BufferedFileWriter{
 			writer:     f,
-			buffer:     bufio.NewWriterSize(f, bufferSize),
+			bufferSize: defaultBufferSize,
 			updateChan: make(chan struct{}, 1),
 			stopChan:   make(chan struct{}),
 		},
@@ -222,6 +258,11 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*Rot
 		maxSize:     maxSize,
 		backupCount: backupCount,
 	}
+
+	for _, option := range options {
+		option(&w.BufferedFileWriter)
+	}
+	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 
 	go w.schedule()
 	return &w, nil
@@ -311,7 +352,7 @@ type TimedRotatingFileWriter struct {
 }
 
 // NewTimedRotatingFileWriter creates a new TimedRotatingFileWriter.
-func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration, backupCount uint8) (*TimedRotatingFileWriter, error) {
+func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration, backupCount uint8, options ...BufferedFileWriterOption) (*TimedRotatingFileWriter, error) {
 	if backupCount == 0 {
 		return nil, errors.New("backupCount cannot be 0")
 	}
@@ -324,7 +365,7 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 	w := TimedRotatingFileWriter{
 		BufferedFileWriter: BufferedFileWriter{
 			writer:     f,
-			buffer:     bufio.NewWriterSize(f, bufferSize),
+			bufferSize: defaultBufferSize,
 			updateChan: make(chan struct{}, 1),
 			stopChan:   make(chan struct{}),
 		},
@@ -332,6 +373,11 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 		rotateDuration: rotateDuration,
 		backupCount:    backupCount,
 	}
+
+	for _, option := range options {
+		option(&w.BufferedFileWriter)
+	}
+	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 
 	go w.schedule()
 	return &w, nil
