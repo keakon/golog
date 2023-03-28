@@ -255,17 +255,17 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
-	var locker sync.RWMutex
+	var lock sync.RWMutex
 	setNowFunc(func() time.Time {
-		locker.RLock()
+		lock.RLock()
 		now := tm
-		locker.RUnlock()
+		lock.RUnlock()
 		return now
 	})
 	var setNow = func(now time.Time) {
-		locker.Lock()
+		lock.Lock()
 		tm = now
-		locker.Unlock()
+		lock.Unlock()
 	}
 
 	oldNextRotateDuration := nextRotateDuration
@@ -332,17 +332,17 @@ func TestTimedRotatingFileWriterByHour(t *testing.T) {
 	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
-	var locker sync.RWMutex
+	var lock sync.RWMutex
 	setNowFunc(func() time.Time {
-		locker.RLock()
+		lock.RLock()
 		now := tm
-		locker.RUnlock()
+		lock.RUnlock()
 		return now
 	})
 	var setNow = func(now time.Time) {
-		locker.Lock()
+		lock.Lock()
 		tm = now
-		locker.Unlock()
+		lock.Unlock()
 	}
 
 	oldNextRotateDuration := nextRotateDuration

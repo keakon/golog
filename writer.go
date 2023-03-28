@@ -87,7 +87,7 @@ func NewFileWriter(path string) (*os.File, error) {
 type BufferedFileWriter struct {
 	writer     *os.File
 	buffer     *bufio.Writer
-	locker     sync.Mutex
+	lock       sync.Mutex
 	stopChan   chan struct{}
 	updateChan chan struct{}
 	updated    bool
@@ -124,13 +124,13 @@ func (w *BufferedFileWriter) schedule() {
 
 		select {
 		case <-timer.C:
-			w.locker.Lock()
+			w.lock.Lock()
 			var err error
 			if w.writer != nil { // not closed
 				w.updated = false
 				err = w.buffer.Flush()
 			}
-			w.locker.Unlock()
+			w.lock.Unlock()
 			if err != nil {
 				logError(err)
 			}
@@ -143,20 +143,23 @@ func (w *BufferedFileWriter) schedule() {
 
 // Write writes a byte slice to the buffer.
 func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
-	w.locker.Lock()
+	w.lock.Lock()
 	n, err = w.buffer.Write(p)
 	if !w.updated && n > 0 && w.buffer.Buffered() > 0 { // check w.updated to prevent notifying w.updateChan twice
 		w.updated = true
-		w.updateChan <- struct{}{}
+		select { // ignore if blocked
+		case w.updateChan <- struct{}{}:
+		default:
+		}
 	}
-	w.locker.Unlock()
+	w.lock.Unlock()
 	return
 }
 
 // Close flushes the buffer, then closes the file writer.
 func (w *BufferedFileWriter) Close() error {
 	close(w.stopChan)
-	w.locker.Lock()
+	w.lock.Lock()
 	err := w.buffer.Flush()
 	w.buffer = nil
 	if err == nil {
@@ -168,7 +171,7 @@ func (w *BufferedFileWriter) Close() error {
 		}
 	}
 	w.writer = nil
-	w.locker.Unlock()
+	w.lock.Unlock()
 	return err
 }
 
@@ -226,8 +229,8 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8) (*Rot
 
 // Write writes a byte slice to the buffer and rotates if reaching its maxSize.
 func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
-	w.locker.Lock()
-	defer w.locker.Unlock()
+	w.lock.Lock()
+	defer w.lock.Unlock()
 
 	n, err = w.buffer.Write(p)
 	if n > 0 {
@@ -335,7 +338,7 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 }
 
 func (w *TimedRotatingFileWriter) schedule() {
-	locker := &w.locker
+	lock := &w.lock
 	flushTimer := time.NewTimer(0)
 	duration := nextRotateDuration(w.rotateDuration)
 	rotateTimer := time.NewTimer(duration)
@@ -364,13 +367,13 @@ func (w *TimedRotatingFileWriter) schedule() {
 		for {
 			select {
 			case <-flushTimer.C:
-				locker.Lock()
+				lock.Lock()
 				var err error
 				if w.writer != nil { // not closed
 					w.updated = false
 					err = w.buffer.Flush()
 				}
-				locker.Unlock()
+				lock.Unlock()
 				if err != nil {
 					logError(err)
 				}
@@ -391,21 +394,21 @@ func (w *TimedRotatingFileWriter) schedule() {
 
 // rotate rotates the log file.
 func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
-	w.locker.Lock()
+	w.lock.Lock()
 	if w.writer == nil { // was closed
-		w.locker.Unlock()
+		w.lock.Unlock()
 		return nil // usually happens when program exits, should be ignored
 	}
 
 	err := w.buffer.Flush()
 	if err != nil {
-		w.locker.Unlock()
+		w.lock.Unlock()
 		return err
 	}
 
 	err = w.writer.Close()
 	if err != nil {
-		w.locker.Unlock()
+		w.lock.Unlock()
 		return err
 	}
 
@@ -413,7 +416,7 @@ func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 	if err != nil {
 		w.buffer = nil
 		w.writer = nil
-		w.locker.Unlock()
+		w.lock.Unlock()
 		return err
 	}
 
@@ -422,7 +425,7 @@ func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 
 	duration := nextRotateDuration(w.rotateDuration)
 	timer.Reset(duration)
-	w.locker.Unlock()
+	w.lock.Unlock()
 
 	go w.purge()
 	return nil
@@ -439,11 +442,11 @@ func (w *TimedRotatingFileWriter) purge() {
 	count := len(pathes) - int(w.backupCount) - 1
 	if count > 0 {
 		var name string
-		w.locker.Lock()
+		w.lock.Lock()
 		if w.writer != nil { // not closed
 			name = w.writer.Name()
 		}
-		w.locker.Unlock()
+		w.lock.Unlock()
 		sort.Strings(pathes)
 		for i := 0; i < count; i++ {
 			path := pathes[i]

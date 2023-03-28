@@ -14,6 +14,7 @@
 6. Cross platform, tested on Linux, macOS and Windows
 7. No 3rd party dependance
 8. Fast
+9. Thread safe
 
 ## Installation
 
