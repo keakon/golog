@@ -12,10 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"sync/atomic"
-	"syscall"
 	"time"
-	"unsafe"
 )
 
 const (
@@ -542,14 +539,16 @@ var nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 
 type ConcurrentFileWriter struct {
 	writer     *os.File
-	fd         uintptr
 	cpuCount   int
 	bufferSize int
+	lock       sync.Mutex
 	locks      []sync.Mutex
+	buffer     *bytes.Buffer
 	buffers    []*bytes.Buffer
 	stopChan   chan struct{}
 	updateChan chan int
 	updates    []bool
+	closed     uint32
 }
 
 type ConcurrentFileWriterOption func(*ConcurrentFileWriter)
@@ -573,7 +572,6 @@ func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption)
 
 	w := &ConcurrentFileWriter{
 		writer:     f,
-		fd:         f.Fd(),
 		cpuCount:   cpuCount,
 		bufferSize: defaultBufferSize,
 		locks:      make([]sync.Mutex, cpuCount),
@@ -587,6 +585,7 @@ func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption)
 		option(w)
 	}
 
+	w.buffer = bytes.NewBuffer(make([]byte, 0, w.bufferSize))
 	for i := 0; i < cpuCount; i++ {
 		w.buffers[i] = bytes.NewBuffer(make([]byte, 0, w.bufferSize))
 	}
@@ -612,7 +611,7 @@ func (w *ConcurrentFileWriter) schedule() {
 
 		select {
 		case <-timer.C:
-			if atomic.LoadUintptr(&w.fd) != 0 { // not closed
+			if w.writer != nil { // not closed
 			updateLoop:
 				for {
 					select {
@@ -644,37 +643,31 @@ func (w *ConcurrentFileWriter) schedule() {
 						}
 					}
 				} else {
-					data := make([][]byte, 0, len(updatedShards))
-
 					for shard := range updatedShards {
 						w.locks[shard].Lock()
 						w.updates[shard] = false
 						buffer := w.buffers[shard]
 						bs := buffer.Bytes()
 						if len(bs) > 0 {
-							data = append(data, append([]byte{}, bs...))
+							w.buffer.Write(bs)
 							buffer.Reset()
 						}
 						w.locks[shard].Unlock()
 					}
 
-					w.writev(data)
+					data := w.buffer.Bytes()
+					if len(data) > 0 {
+						_, err := w.writer.Write(data)
+						if err != nil {
+							logError(err)
+						}
+						w.buffer.Reset()
+					}
 				}
 			}
 		case <-w.stopChan:
 			stopTimer(timer)
 			return
-		}
-	}
-}
-
-func (w *ConcurrentFileWriter) writev(data [][]byte) {
-	ivs := iovecs(data)
-	fd := atomic.LoadUintptr(&w.fd)
-	if fd != 0 {
-		_, _, err := syscall.RawSyscall(syscall.SYS_WRITEV, fd, uintptr(unsafe.Pointer(&ivs[0])), uintptr(len(data)))
-		if err != 0 {
-			logError(err)
 		}
 	}
 }
@@ -699,22 +692,19 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 
 // Close flushes the buffer, then closes the file writer.
 func (w *ConcurrentFileWriter) Close() (err error) {
-	atomic.StoreUintptr(&w.fd, 0) // make sure schedule() before Close()
 	close(w.stopChan)
-	data := make([][]byte, 0, w.cpuCount)
+	buf := bufio.NewWriter(w.writer) // don't reuse w.buffer to avoid data race
 	for i := 0; i < w.cpuCount; i++ {
 		w.locks[i].Lock()
 		buffer := w.buffers[i]
 		bs := buffer.Bytes()
 		if len(bs) > 0 {
-			data = append(data, bs)
+			buf.Write(bs)
 			buffer.Reset()
 		}
 		w.locks[i].Unlock()
 	}
-	if len(data) > 0 {
-		w.writev(data)
-	}
+	buf.Flush()
 	err = w.writer.Close()
 	w.writer = nil
 	return err
