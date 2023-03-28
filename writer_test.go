@@ -470,7 +470,7 @@ func TestConcurrentFileWriter(t *testing.T) {
 		t.Errorf("read %d bytes", n)
 	}
 
-	buf := make([]byte, bufferSize)
+	buf := make([]byte, defaultBufferSize)
 	n, err = f.Read(buf)
 	if err != io.EOF {
 		t.Error(err)
