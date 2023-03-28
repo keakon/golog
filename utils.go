@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 	_ "unsafe"
 )
@@ -248,4 +249,22 @@ func StartFastTimer() {
 // StopFastTimer stops the fastTimer.
 func StopFastTimer() {
 	fastTimer.stop()
+}
+
+//go:noescape
+//go:linkname runtime_procPin runtime.procPin
+func runtime_procPin() int
+
+//go:noescape
+//go:linkname runtime_procUnpin runtime.procUnpin
+func runtime_procUnpin()
+
+func iovecs(bs [][]byte) (ivs []syscall.Iovec) {
+	size := len(bs)
+	ivs = make([]syscall.Iovec, size)
+	for i := 0; i < size; i++ {
+		ivs[i].Base = &bs[i][0]
+		ivs[i].SetLen(len(bs[i]))
+	}
+	return
 }

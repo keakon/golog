@@ -122,6 +122,23 @@ The fast timer is about 30% faster than calling time.Time() for each logging rec
 [I 2021-09-12 00:00:00 log_test:206] test
 ```
 
+### ConcurrentFileWriter (**experimental**)
+
+
+```go
+func main() {
+    w, _ := golog.NewConcurrentFileWriter("test.log")
+    l := golog.NewLoggerWithWriter(w)
+    defer l.Close()
+
+    l.Infof("hello world")
+}
+```
+
+The `ConcurrentFileWriter` is designed for high concurrency applications.
+It is about 140% faster than `BufferedFileWriter` at 6C12H by reducing the lock overhead, but a little slower at single thread.
+**Note**: The order of logging records from different cpu cores within each 0.1 second are random.
+
 ## Benchmarks
 
 ### Platform
@@ -143,6 +160,8 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | MultiLevelsParallel | 532ns ±15% | 5.98 | 0B | 0 |
 | BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
 | BufferedFileLoggerParallel | 260ns ±11% | 2.92 | 0B | 0 |
+| ConcurrentFileLogger | 597ns ±2% | 1.24 | 0B | 0 |
+| ConcurrentFileLoggerParallel | 108ns ±7% | 1.21 | 0B | 0 |
 | | | | | |
 | DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
 | DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |
@@ -154,6 +173,7 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 * NopLog: skips logs with lower level than the logger or handler
 * MultiLevels: writes 5 levels of logs to 5 levels handlers of a warning level logger
 * BufferedFileLogger: writes logs to a disk file
+* ConcurrentFileLogger: writes logs to a disk file with `ConcurrentFileWriter`
 * DiscardZerolog: writes logs to ioutil.Discard with [zerolog](https://github.com/rs/zerolog)
 * DiscardZap: writes logs to ioutil.Discard with [zap](https://github.com/uber-go/zap) using `zap.NewProductionEncoderConfig()`
 

@@ -406,3 +406,53 @@ func BenchmarkBufferedFileLoggerParallel(b *testing.B) {
 	})
 	l.Close()
 }
+
+func BenchmarkConcurrentFileLogger(b *testing.B) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	path := filepath.Join(os.TempDir(), "test.log")
+	os.Remove(path)
+	w, err := golog.NewConcurrentFileWriter(path, golog.BytesBufferSize(1024*1024*8))
+	if err != nil {
+		b.Error(err)
+	}
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		Infof("test")
+	}
+	l.Close()
+}
+
+func BenchmarkConcurrentFileLoggerParallel(b *testing.B) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	path := filepath.Join(os.TempDir(), "test.log")
+	os.Remove(path)
+	w, err := golog.NewConcurrentFileWriter(path, golog.BytesBufferSize(1024*1024*8))
+	if err != nil {
+		b.Error(err)
+	}
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			Infof("test")
+		}
+	})
+	l.Close()
+}

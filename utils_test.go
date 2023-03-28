@@ -181,3 +181,9 @@ func TestFastUint2DynamicBytes(t *testing.T) {
 		t.Errorf("result is " + bs)
 	}
 }
+
+func BenchmarkCaller(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Caller(1)
+	}
+}
