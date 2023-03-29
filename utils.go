@@ -249,3 +249,11 @@ func StartFastTimer() {
 func StopFastTimer() {
 	fastTimer.stop()
 }
+
+//go:noescape
+//go:linkname runtime_procPin runtime.procPin
+func runtime_procPin() int
+
+//go:noescape
+//go:linkname runtime_procUnpin runtime.procUnpin
+func runtime_procUnpin()

@@ -1,10 +1,12 @@
 package golog
 
 import (
+	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -438,4 +440,120 @@ func TestNextRotateDuration(t *testing.T) {
 	if nextRotateDuration(RotateByHour) > time.Hour {
 		t.Errorf("nextRotateDuration(RotateByHour) longer than 1 hour")
 	}
+}
+
+func TestConcurrentFileWriter(t *testing.T) {
+	path := filepath.Join(os.TempDir(), "test.log")
+	os.Remove(path)
+	w, err := NewConcurrentFileWriter(path)
+	if err != nil {
+		t.Error(err)
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		t.Error(err)
+	}
+	stat, err := f.Stat()
+	if err != nil {
+		t.Error(err)
+	}
+	if stat.Size() != 0 {
+		t.Errorf("file size are %d bytes", stat.Size())
+	}
+
+	n, err := w.Write([]byte("test"))
+	if err != nil {
+		t.Error(err)
+	}
+	if n != 4 {
+		t.Errorf("read %d bytes", n)
+	}
+
+	buf := make([]byte, defaultBufferSize)
+	n, err = f.Read(buf)
+	if err != io.EOF {
+		t.Error(err)
+	}
+	if n != 0 {
+		t.Errorf("read %d bytes", n)
+	}
+
+	for i := 0; i < maxRetryCount; i++ {
+		time.Sleep(flushDuration)
+		n, err = f.Read(buf)
+		if err != nil {
+			if i == maxRetryCount-1 {
+				t.Error(err)
+			} else {
+				continue
+			}
+		} else {
+			break
+		}
+	}
+	if n != 4 {
+		t.Errorf("read %d bytes", n)
+	}
+	bs := string(buf[:4])
+	if bs != "test" {
+		t.Error("read bytes are " + bs)
+	}
+
+	var count = w.cpuCount
+	if count < 4 {
+		count = 4
+	} else if count > 10 {
+		count = 10
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(count)
+	const writeCount = 10000
+	var dataSize int
+	for i := 0; i < count; i++ {
+		data := []byte("test" + strconv.Itoa(i) + "\n")
+		dataSize = len(data)
+		go func() {
+			for j := 0; j < writeCount; j++ {
+				w.Write(data)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	for i := 0; i < maxRetryCount; i++ {
+		time.Sleep(flushDuration)
+		n, err = f.Read(buf)
+		if err != nil {
+			if i == maxRetryCount-1 {
+				t.Error(err)
+			} else {
+				continue
+			}
+		} else {
+			break
+		}
+	}
+	if n != count*dataSize*writeCount {
+		t.Errorf("read %d bytes, expected %d bytes", n, count*dataSize*writeCount)
+	}
+
+	lines := bytes.Split(buf[:n], []byte{'\n'})
+	if len(lines) != count*writeCount+1 {
+		t.Errorf("read %d lines, expected %d lines", len(lines), count*writeCount+1)
+	}
+	if len(lines[count*writeCount]) != 0 {
+		t.Error("last part is not empty")
+	}
+	lines = lines[:count*writeCount]
+	for i, line := range lines {
+		if len(line) != dataSize-1 {
+			t.Errorf("length of line %d is %d, expected %d", i, len(line), dataSize-1)
+		}
+	}
+
+	f.Close()
+	w.Close()
 }

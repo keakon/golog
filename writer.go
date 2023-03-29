@@ -2,12 +2,14 @@ package golog
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -163,9 +165,9 @@ func (w *BufferedFileWriter) schedule() {
 func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	w.lock.Lock()
 	n, err = w.buffer.Write(p)
-	if !w.updated && n > 0 && w.buffer.Buffered() > 0 { // check w.updated to prevent notifying w.updateChan twice
+	if !w.updated && n > 0 && w.buffer.Buffered() > 0 { // checks w.updated to prevent notifying w.updateChan twice
 		w.updated = true
-		select { // ignore if blocked
+		select { // ignores if blocked
 		case w.updateChan <- struct{}{}:
 		default:
 		}
@@ -319,7 +321,10 @@ func (w *RotatingFileWriter) rotate() error {
 	for i := w.backupCount; i > 1; i-- {
 		oldPath := fmt.Sprintf("%s.%d", w.path, i-1)
 		newPath := fmt.Sprintf("%s.%d", w.path, i)
-		os.Rename(oldPath, newPath) // ignore error
+		e := os.Rename(oldPath, newPath)
+		if e != nil {
+			logError(e)
+		}
 	}
 
 	err = os.Rename(w.path, w.path+".1")
@@ -533,4 +538,178 @@ var nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 		nextTime = time.Date(now.Year(), now.Month(), now.Day(), now.Hour()+1, 0, 0, 0, now.Location())
 	}
 	return nextTime.Sub(now)
+}
+
+type ConcurrentFileWriter struct {
+	writer      *os.File
+	cpuCount    int
+	bufferSize  int
+	locks       []sync.Mutex
+	buffer      *bytes.Buffer
+	buffers     []*bytes.Buffer
+	stopChan    chan struct{}
+	stoppedChan chan struct{}
+	updateChan  chan int
+	updates     []bool
+}
+
+type ConcurrentFileWriterOption func(*ConcurrentFileWriter)
+
+func BytesBufferSize(size int) ConcurrentFileWriterOption {
+	return func(w *ConcurrentFileWriter) {
+		if size >= 1024 {
+			w.bufferSize = size
+		}
+	}
+}
+
+// NewBufferedFileWriter creates a new BufferedFileWriter.
+func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption) (*ConcurrentFileWriter, error) {
+	f, err := os.OpenFile(path, fileFlag, fileMode)
+	if err != nil {
+		return nil, err
+	}
+
+	cpuCount := runtime.GOMAXPROCS(0)
+
+	w := &ConcurrentFileWriter{
+		writer:      f,
+		cpuCount:    cpuCount,
+		bufferSize:  defaultBufferSize,
+		locks:       make([]sync.Mutex, cpuCount),
+		buffers:     make([]*bytes.Buffer, cpuCount),
+		updateChan:  make(chan int, cpuCount),
+		stopChan:    make(chan struct{}),
+		stoppedChan: make(chan struct{}, 1),
+		updates:     make([]bool, cpuCount),
+	}
+
+	for _, option := range options {
+		option(w)
+	}
+
+	w.buffer = bytes.NewBuffer(make([]byte, 0, w.bufferSize*cpuCount))
+	for i := 0; i < cpuCount; i++ {
+		w.buffers[i] = bytes.NewBuffer(make([]byte, 0, w.bufferSize))
+	}
+
+	go w.schedule()
+	return w, nil
+}
+
+func (w *ConcurrentFileWriter) schedule() {
+	timer := time.NewTimer(0)
+	updatedShards := make([]int, 0, w.cpuCount)
+	for {
+		updatedShards = updatedShards[:0]
+		select {
+		case shard := <-w.updateChan: // something has been written to the buffer, it can be flushed to the file later
+			updatedShards = append(updatedShards, shard)
+			stopTimer(timer)
+			timer.Reset(flushDuration)
+		case <-w.stopChan:
+			stopTimer(timer)
+			w.stoppedChan <- struct{}{}
+			return
+		}
+
+		select {
+		case <-timer.C:
+		updateLoop:
+			for {
+				select {
+				case shard := <-w.updateChan:
+					updatedShards = append(updatedShards, shard)
+				default:
+					break updateLoop
+				}
+			}
+
+			if len(updatedShards) == 1 { // directly writes to the file
+				for _, shard := range updatedShards {
+					w.locks[shard].Lock()
+					w.updates[shard] = false
+					buffer := w.buffers[shard]
+					if buffer.Len() > 0 {
+						_, err := w.writer.Write(buffer.Bytes())
+						if err != nil {
+							logError(err)
+						}
+						buffer.Reset()
+					}
+					w.locks[shard].Unlock()
+				}
+			} else { // buffered writes to the file
+				for _, shard := range updatedShards {
+					w.locks[shard].Lock()
+					w.updates[shard] = false
+					buffer := w.buffers[shard]
+					if buffer.Len() > 0 {
+						w.buffer.Write(buffer.Bytes())
+						buffer.Reset()
+					}
+					w.locks[shard].Unlock()
+				}
+
+				data := w.buffer.Bytes()
+				if len(data) > 0 {
+					_, err := w.writer.Write(data)
+					if err != nil {
+						logError(err)
+					}
+					w.buffer.Reset()
+				}
+			}
+		case <-w.stopChan:
+			stopTimer(timer)
+			w.stoppedChan <- struct{}{}
+			return
+		}
+	}
+}
+
+// Write writes a byte slice to the buffer.
+func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
+	shard := runtime_procPin()
+	runtime_procUnpin() // can't hold the lock for long
+
+	w.locks[shard].Lock()
+	n, err = w.buffers[shard].Write(p)
+	if !w.updates[shard] && n > 0 && w.buffers[shard].Len() > 0 { // checks w.updated to prevent notifying w.updateChan twice
+		w.updates[shard] = true
+		select { // ignores if blocked
+		case w.updateChan <- shard:
+		default:
+		}
+	}
+	w.locks[shard].Unlock()
+	return
+}
+
+// Close flushes the buffer, then closes the file writer.
+func (w *ConcurrentFileWriter) Close() (err error) {
+	close(w.stopChan) // stops schedule()
+	<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without locks
+	for i := 0; i < w.cpuCount; i++ {
+		buffer := w.buffers[i]
+		if buffer.Len() > 0 {
+			w.buffer.Write(buffer.Bytes())
+			buffer.Reset()
+		}
+	}
+	bs := w.buffer.Bytes()
+	if len(bs) > 0 {
+		_, err = w.writer.Write(bs)
+		w.buffer.Reset()
+	}
+	if err == nil {
+		err = w.writer.Close()
+	} else {
+		e := w.writer.Close()
+		if e != nil {
+			logError(e)
+		}
+	}
+	w.writer = nil
+	return err
 }
