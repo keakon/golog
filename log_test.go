@@ -61,7 +61,6 @@ func TestLogger(t *testing.T) {
 	size1 := len(debugContent)
 	if size1 == 0 {
 		t.Error("debug log is empty")
-		return
 	}
 
 	l.Infof("test %d", 2)
@@ -69,6 +68,10 @@ func TestLogger(t *testing.T) {
 	infoContent, err := ioutil.ReadFile(infoPath)
 	if err != nil {
 		t.Error(err)
+	}
+	size2 := len(infoContent)
+	if size2 != size1 {
+		t.Error("the sizes of debug and info logs are not equal")
 	}
 
 	parts := strings.Fields(string(infoContent))
@@ -98,8 +101,8 @@ func TestLogger(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	size2 := len(debugContent)
-	if size2 == size1*2 {
+	size3 := len(debugContent)
+	if size3 == size1*2 {
 		if !bytes.Equal(debugContent[size1:], infoContent) {
 			t.Error("log contents are not equal")
 		}
@@ -109,6 +112,36 @@ func TestLogger(t *testing.T) {
 
 	if !bytes.Equal(debugContent[size1:], infoContent) {
 		t.Error("log contents are not equal")
+	}
+
+	l.Debug(1)
+	l.Info(1)
+	l.Warn(1)
+	l.Error(1)
+	l.Crit(1)
+	l.Warnf("1")
+	l.Errorf("1")
+	l.Critf("1")
+
+	infoContent, err = ioutil.ReadFile(infoPath)
+	if err != nil {
+		t.Error(err)
+	}
+	size4 := len(infoContent)
+	if size4 <= size2 {
+		t.Error("info log size not changed")
+	}
+
+	debugContent, err = ioutil.ReadFile(debugPath)
+	if err != nil {
+		t.Error(err)
+	}
+	size5 := len(debugContent)
+	if size5 <= size3 {
+		t.Error("debug log size not changed")
+	}
+	if size5 <= size4 {
+		t.Error("info log size is larger than debug log size")
 	}
 }
 
