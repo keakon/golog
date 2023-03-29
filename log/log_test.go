@@ -230,7 +230,6 @@ func TestLogFuncs(t *testing.T) {
 	if w.Buffer.Len() == 0 {
 		t.Error("memoryWriter is empty")
 	}
-	l.Close()
 
 	Crit("test")
 	if w.Buffer.Len() == 0 {
