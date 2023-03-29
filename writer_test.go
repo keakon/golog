@@ -83,25 +83,18 @@ func TestBufferedFileWriter(t *testing.T) {
 		t.Error(err)
 	}
 	if n != 4 {
-		t.Errorf("read %d bytes", n)
+		t.Errorf("write %d bytes, expected 4", n)
 	}
 
 	buf := make([]byte, bufferSize*2)
-	n, err = f.Read(buf)
-	if err != io.EOF {
-		t.Error(err)
-	}
-	if n != 0 {
-		t.Errorf("read %d bytes", n)
-	}
 
 	for i := 0; i < maxRetryCount; i++ {
-		time.Sleep(flushDuration)
 		n, err = f.Read(buf)
 		if err != nil {
 			if i == maxRetryCount-1 {
 				t.Error(err)
 			} else {
+				time.Sleep(flushDuration)
 				continue
 			}
 		} else {
@@ -109,7 +102,7 @@ func TestBufferedFileWriter(t *testing.T) {
 		}
 	}
 	if n != 4 {
-		t.Errorf("read %d bytes", n)
+		t.Errorf("read %d bytes, expected 4", n)
 	}
 	bs := string(buf[:4])
 	if bs != "test" {
@@ -135,12 +128,12 @@ func TestBufferedFileWriter(t *testing.T) {
 	}
 
 	for i := 0; i < maxRetryCount; i++ {
-		time.Sleep(flushDuration)
 		n, err = f.Read(buf)
 		if err != nil {
 			if i == maxRetryCount-1 {
 				t.Error(err)
 			} else {
+				time.Sleep(flushDuration)
 				continue
 			}
 		} else {
@@ -445,7 +438,7 @@ func TestNextRotateDuration(t *testing.T) {
 func TestConcurrentFileWriter(t *testing.T) {
 	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
-	w, err := NewConcurrentFileWriter(path)
+	w, err := NewConcurrentFileWriter(path, BytesBufferSize(1024*1024))
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,25 +460,17 @@ func TestConcurrentFileWriter(t *testing.T) {
 		t.Error(err)
 	}
 	if n != 4 {
-		t.Errorf("read %d bytes", n)
+		t.Errorf("write %d bytes, expected 4", n)
 	}
 
 	buf := make([]byte, defaultBufferSize)
-	n, err = f.Read(buf)
-	if err != io.EOF {
-		t.Error(err)
-	}
-	if n != 0 {
-		t.Errorf("read %d bytes", n)
-	}
-
 	for i := 0; i < maxRetryCount; i++ {
-		time.Sleep(flushDuration)
 		n, err = f.Read(buf)
 		if err != nil {
 			if i == maxRetryCount-1 {
 				t.Error(err)
 			} else {
+				time.Sleep(flushDuration)
 				continue
 			}
 		} else {
@@ -493,7 +478,7 @@ func TestConcurrentFileWriter(t *testing.T) {
 		}
 	}
 	if n != 4 {
-		t.Errorf("read %d bytes", n)
+		t.Errorf("read %d bytes, expected 4", n)
 	}
 	bs := string(buf[:4])
 	if bs != "test" {

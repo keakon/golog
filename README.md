@@ -122,7 +122,7 @@ The fast timer is about 30% faster than calling time.Time() for each logging rec
 [I 2021-09-12 00:00:00 log_test:206] test
 ```
 
-### ConcurrentFileWriter (**experimental**)
+### ConcurrentFileWriter *(experimental)*
 
 
 ```go
@@ -136,8 +136,8 @@ func main() {
 ```
 
 The `ConcurrentFileWriter` is designed for high concurrency applications.
-It is about 140% faster than `BufferedFileWriter` at 6C12H by reducing the lock overhead, but a little slower at single thread.
-**Note**: The order of logging records from different cpu cores within each 0.1 second are random.
+It is about 140% faster than `BufferedFileWriter` at 6C12H by reducing the lock overhead, but a little slower at single thread.  
+**Note**: The order of logging records from different cpu cores within each 0.1 second is random.
 
 ## Benchmarks
 
@@ -161,7 +161,7 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
 | BufferedFileLoggerParallel | 260ns ±11% | 2.92 | 0B | 0 |
 | ConcurrentFileLogger | 593ns ±1% | 1.23 | 0B | 0 |
-| ConcurrentFileLoggerParallel | 108ns ±3% | 1.21 | 0B | 0 |
+| ConcurrentFileLoggerParallel | 102ns ±5% | 1.17 | 0B | 0 |
 | | | | | |
 | DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
 | DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |
