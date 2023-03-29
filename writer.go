@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	defaultBufferSize = 1024 * 1024 * 4
+
 	fileFlag      = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 	fileMode      = 0644
 	flushDuration = time.Millisecond * 100
@@ -24,17 +26,15 @@ const (
 	rotateByHourFormat = "-2006010215.log" // -YYYYmmddHH.log
 )
 
+// RotateDuration specifies rotate duration type, should be either RotateByDate or RotateByHour.
+type RotateDuration uint8
+
 const (
 	// RotateByDate set the log file to be rotated each day.
 	RotateByDate RotateDuration = iota
 	// RotateByHour set the log file to be rotated each hour.
 	RotateByHour
 )
-
-const defaultBufferSize = 1024 * 1024 * 4
-
-// RotateDuration specifies rotate duration type, should be either RotateByDate or RotateByHour.
-type RotateDuration uint8
 
 // DiscardWriter is a WriteCloser which write everything to devNull
 type DiscardWriter struct {
@@ -83,11 +83,17 @@ func NewFileWriter(path string) (*os.File, error) {
 	return os.OpenFile(path, fileFlag, fileMode)
 }
 
-type BufferedFileWriterOption func(*BufferedFileWriter)
+type bufferedFileWriter struct {
+	file       *os.File
+	buffer     *bufio.Writer
+	bufferSize uint32
+}
+
+type BufferedFileWriterOption func(*bufferedFileWriter)
 
 // BufferSize sets the buffer size.
 func BufferSize(size uint32) BufferedFileWriterOption {
-	return func(w *BufferedFileWriter) {
+	return func(w *bufferedFileWriter) {
 		if size >= 1024 {
 			w.bufferSize = size
 		}
@@ -98,9 +104,7 @@ func BufferSize(size uint32) BufferedFileWriterOption {
 // The written bytes will be flushed to the log file every 0.1 second,
 // or when reaching the buffer capacity (4 MB).
 type BufferedFileWriter struct {
-	writer     *os.File
-	bufferSize uint32
-	buffer     *bufio.Writer
+	bufferedFileWriter
 	lock       sync.Mutex
 	stopChan   chan struct{}
 	updateChan chan struct{}
@@ -114,14 +118,16 @@ func NewBufferedFileWriter(path string, options ...BufferedFileWriterOption) (*B
 		return nil, err
 	}
 	w := &BufferedFileWriter{
-		writer:     f,
-		bufferSize: defaultBufferSize,
+		bufferedFileWriter: bufferedFileWriter{
+			file:       f,
+			bufferSize: defaultBufferSize,
+		},
 		updateChan: make(chan struct{}, 1),
 		stopChan:   make(chan struct{}),
 	}
 
 	for _, option := range options {
-		option(w)
+		option(&w.bufferedFileWriter)
 	}
 	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 
@@ -146,7 +152,7 @@ func (w *BufferedFileWriter) schedule() {
 		case <-timer.C:
 			w.lock.Lock()
 			var err error
-			if w.writer != nil { // not closed
+			if w.file != nil { // not closed
 				w.updated = false
 				err = w.buffer.Flush()
 			}
@@ -183,14 +189,14 @@ func (w *BufferedFileWriter) Close() error {
 	err := w.buffer.Flush()
 	w.buffer = nil
 	if err == nil {
-		err = w.writer.Close()
+		err = w.file.Close()
 	} else {
-		e := w.writer.Close()
+		e := w.file.Close()
 		if e != nil {
 			logError(e)
 		}
 	}
-	w.writer = nil
+	w.file = nil
 	w.lock.Unlock()
 	return err
 }
@@ -232,8 +238,10 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8, optio
 
 	w := RotatingFileWriter{
 		BufferedFileWriter: BufferedFileWriter{
-			writer:     f,
-			bufferSize: defaultBufferSize,
+			bufferedFileWriter: bufferedFileWriter{
+				file:       f,
+				bufferSize: defaultBufferSize,
+			},
 			updateChan: make(chan struct{}, 1),
 			stopChan:   make(chan struct{}),
 		},
@@ -244,7 +252,7 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8, optio
 	}
 
 	for _, option := range options {
-		option(&w.BufferedFileWriter)
+		option(&w.bufferedFileWriter)
 	}
 	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 
@@ -283,7 +291,7 @@ func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 
 // rotate rotates the log file. It should be called within a lock block.
 func (w *RotatingFileWriter) rotate() error {
-	if w.writer == nil { // was closed
+	if w.file == nil { // was closed
 		return os.ErrClosed
 	}
 
@@ -292,10 +300,10 @@ func (w *RotatingFileWriter) rotate() error {
 		return err
 	}
 
-	err = w.writer.Close()
+	err = w.file.Close()
 	w.pos = 0
 	if err != nil {
-		w.writer = nil
+		w.file = nil
 		w.buffer = nil
 		return err
 	}
@@ -311,19 +319,19 @@ func (w *RotatingFileWriter) rotate() error {
 
 	err = os.Rename(w.path, w.path+".1")
 	if err != nil {
-		w.writer = nil
+		w.file = nil
 		w.buffer = nil
 		return err
 	}
 
 	f, err := os.OpenFile(w.path, fileFlag, fileMode)
 	if err != nil {
-		w.writer = nil
+		w.file = nil
 		w.buffer = nil
 		return err
 	}
 
-	w.writer = f
+	w.file = f
 	w.buffer.Reset(f)
 	return nil
 }
@@ -351,8 +359,10 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 
 	w := TimedRotatingFileWriter{
 		BufferedFileWriter: BufferedFileWriter{
-			writer:     f,
-			bufferSize: defaultBufferSize,
+			bufferedFileWriter: bufferedFileWriter{
+				file:       f,
+				bufferSize: defaultBufferSize,
+			},
 			updateChan: make(chan struct{}, 1),
 			stopChan:   make(chan struct{}),
 		},
@@ -362,7 +372,7 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 	}
 
 	for _, option := range options {
-		option(&w.BufferedFileWriter)
+		option(&w.bufferedFileWriter)
 	}
 	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 
@@ -402,7 +412,7 @@ func (w *TimedRotatingFileWriter) schedule() {
 			case <-flushTimer.C:
 				lock.Lock()
 				var err error
-				if w.writer != nil { // not closed
+				if w.file != nil { // not closed
 					w.updated = false
 					err = w.buffer.Flush()
 				}
@@ -428,7 +438,7 @@ func (w *TimedRotatingFileWriter) schedule() {
 // rotate rotates the log file.
 func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 	w.lock.Lock()
-	if w.writer == nil { // was closed
+	if w.file == nil { // was closed
 		w.lock.Unlock()
 		return nil // usually happens when program exits, should be ignored
 	}
@@ -439,7 +449,7 @@ func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 		return err
 	}
 
-	err = w.writer.Close()
+	err = w.file.Close()
 	if err != nil {
 		w.lock.Unlock()
 		return err
@@ -448,12 +458,12 @@ func (w *TimedRotatingFileWriter) rotate(timer *time.Timer) error {
 	f, err := openTimedRotatingFile(w.pathPrefix, w.rotateDuration)
 	if err != nil {
 		w.buffer = nil
-		w.writer = nil
+		w.file = nil
 		w.lock.Unlock()
 		return err
 	}
 
-	w.writer = f
+	w.file = f
 	w.buffer.Reset(f)
 
 	duration := nextRotateDuration(w.rotateDuration)
@@ -476,8 +486,8 @@ func (w *TimedRotatingFileWriter) purge() {
 	if count > 0 {
 		var name string
 		w.lock.Lock()
-		if w.writer != nil { // not closed
-			name = w.writer.Name()
+		if w.file != nil { // not closed
+			name = w.file.Name()
 		}
 		w.lock.Unlock()
 		sort.Strings(pathes)
@@ -523,28 +533,16 @@ var nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 }
 
 type ConcurrentFileWriter struct {
-	writer      *os.File
+	bufferedFileWriter
 	cpuCount    int
-	bufferSize  int
 	locks       []sync.Mutex
-	buffer      *bytes.Buffer
 	buffers     []*bytes.Buffer
 	stopChan    chan struct{}
 	stoppedChan chan struct{}
 }
 
-type ConcurrentFileWriterOption func(*ConcurrentFileWriter)
-
-func BytesBufferSize(size int) ConcurrentFileWriterOption {
-	return func(w *ConcurrentFileWriter) {
-		if size >= 1024 {
-			w.bufferSize = size
-		}
-	}
-}
-
 // NewBufferedFileWriter creates a new BufferedFileWriter.
-func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption) (*ConcurrentFileWriter, error) {
+func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (*ConcurrentFileWriter, error) {
 	f, err := os.OpenFile(path, fileFlag, fileMode)
 	if err != nil {
 		return nil, err
@@ -553,9 +551,11 @@ func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption)
 	cpuCount := runtime.GOMAXPROCS(0)
 
 	w := &ConcurrentFileWriter{
-		writer:      f,
+		bufferedFileWriter: bufferedFileWriter{
+			file:       f,
+			bufferSize: defaultBufferSize,
+		},
 		cpuCount:    cpuCount,
-		bufferSize:  defaultBufferSize,
 		locks:       make([]sync.Mutex, cpuCount),
 		buffers:     make([]*bytes.Buffer, cpuCount),
 		stopChan:    make(chan struct{}),
@@ -563,10 +563,10 @@ func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption)
 	}
 
 	for _, option := range options {
-		option(w)
+		option(&w.bufferedFileWriter)
 	}
 
-	w.buffer = bytes.NewBuffer(make([]byte, 0, w.bufferSize*cpuCount))
+	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 	for i := 0; i < cpuCount; i++ {
 		w.buffers[i] = bytes.NewBuffer(make([]byte, 0, w.bufferSize))
 	}
@@ -590,13 +590,8 @@ func (w *ConcurrentFileWriter) schedule() {
 				w.locks[shard].Unlock()
 			}
 
-			data := w.buffer.Bytes()
-			if len(data) > 0 {
-				_, err := w.writer.Write(data)
-				if err != nil {
-					logError(err)
-				}
-				w.buffer.Reset()
+			if w.buffer.Buffered() > 0 {
+				w.buffer.Flush()
 			}
 
 			timer.Reset(flushDuration)
@@ -630,19 +625,18 @@ func (w *ConcurrentFileWriter) Close() (err error) {
 			buffer.Reset()
 		}
 	}
-	bs := w.buffer.Bytes()
-	if len(bs) > 0 {
-		_, err = w.writer.Write(bs)
-		w.buffer.Reset()
+
+	if w.buffer.Buffered() > 0 {
+		err = w.buffer.Flush()
 	}
 	if err == nil {
-		err = w.writer.Close()
+		err = w.file.Close()
 	} else {
-		e := w.writer.Close()
+		e := w.file.Close()
 		if e != nil {
 			logError(e)
 		}
 	}
-	w.writer = nil
+	w.file = nil
 	return err
 }

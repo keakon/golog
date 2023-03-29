@@ -161,7 +161,7 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
 | BufferedFileLoggerParallel | 260ns ±11% | 2.92 | 0B | 0 |
 | ConcurrentFileLogger | 593ns ±1% | 1.23 | 0B | 0 |
-| ConcurrentFileLoggerParallel | 102ns ±5% | 1.17 | 0B | 0 |
+| ConcurrentFileLoggerParallel | 101ns ±2% | 1.13 | 0B | 0 |
 | | | | | |
 | DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
 | DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |

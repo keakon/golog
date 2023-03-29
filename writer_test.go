@@ -438,7 +438,7 @@ func TestNextRotateDuration(t *testing.T) {
 func TestConcurrentFileWriter(t *testing.T) {
 	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
-	w, err := NewConcurrentFileWriter(path, BytesBufferSize(1024*1024))
+	w, err := NewConcurrentFileWriter(path, BufferSize(1024*1024))
 	if err != nil {
 		t.Error(err)
 	}
