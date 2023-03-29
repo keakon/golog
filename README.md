@@ -160,22 +160,22 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | MultiLevelsParallel | 532ns ±15% | 5.98 | 0B | 0 |
 | BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
 | BufferedFileLoggerParallel | 260ns ±11% | 2.92 | 0B | 0 |
-| ConcurrentFileLogger | 597ns ±2% | 1.24 | 0B | 0 |
-| ConcurrentFileLoggerParallel | 108ns ±7% | 1.21 | 0B | 0 |
+| ConcurrentFileLogger | 593ns ±1% | 1.23 | 0B | 0 |
+| ConcurrentFileLoggerParallel | 108ns ±3% | 1.21 | 0B | 0 |
 | | | | | |
 | DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
 | DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |
 | DiscardZap | 2.13µs ±0% | 4.41 | 272B | 5 |
 | DiscardZapParallel | 465ns ±5% | 5.22 | 274B | 5 |
 
-* DiscardLogger: writes logs to ioutil.Discard
+* DiscardLogger: writes logs to `ioutil.Discard`
 * DiscardLoggerWithoutTimer: the same as above but without fast timer
 * NopLog: skips logs with lower level than the logger or handler
 * MultiLevels: writes 5 levels of logs to 5 levels handlers of a warning level logger
 * BufferedFileLogger: writes logs to a disk file
 * ConcurrentFileLogger: writes logs to a disk file with `ConcurrentFileWriter`
-* DiscardZerolog: writes logs to ioutil.Discard with [zerolog](https://github.com/rs/zerolog)
-* DiscardZap: writes logs to ioutil.Discard with [zap](https://github.com/uber-go/zap) using `zap.NewProductionEncoderConfig()`
+* DiscardZerolog: writes logs to `ioutil.Discard` with [zerolog](https://github.com/rs/zerolog)
+* DiscardZap: writes logs to `ioutil.Discard` with [zap](https://github.com/uber-go/zap) using `zap.NewProductionEncoderConfig()`
 
 All the logs include 4 parts: level, time, caller and message. This is an example output of the benchmarks:
 

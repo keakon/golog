@@ -599,12 +599,12 @@ func NewConcurrentFileWriter(path string, options ...ConcurrentFileWriterOption)
 
 func (w *ConcurrentFileWriter) schedule() {
 	timer := time.NewTimer(0)
+	updatedShards := make([]int, 0, w.cpuCount)
 	for {
-		updatedShards := make(map[int]bool, w.cpuCount)
+		updatedShards = updatedShards[:0]
 		select {
-		case shard := <-w.updateChan:
-			updatedShards[shard] = true
-			// something has been written to the buffer, it can be flushed to the file later
+		case shard := <-w.updateChan: // something has been written to the buffer, it can be flushed to the file later
+			updatedShards = append(updatedShards, shard)
 			stopTimer(timer)
 			timer.Reset(flushDuration)
 		case <-w.stopChan:
@@ -619,14 +619,14 @@ func (w *ConcurrentFileWriter) schedule() {
 			for {
 				select {
 				case shard := <-w.updateChan:
-					updatedShards[shard] = true
+					updatedShards = append(updatedShards, shard)
 				default:
 					break updateLoop
 				}
 			}
 
-			if len(updatedShards) == 1 {
-				for shard := range updatedShards {
+			if len(updatedShards) == 1 { // directly writes to the file
+				for _, shard := range updatedShards {
 					w.locks[shard].Lock()
 					w.updates[shard] = false
 					buffer := w.buffers[shard]
@@ -639,14 +639,13 @@ func (w *ConcurrentFileWriter) schedule() {
 					}
 					w.locks[shard].Unlock()
 				}
-			} else {
-				for shard := range updatedShards {
+			} else { // buffered writes to the file
+				for _, shard := range updatedShards {
 					w.locks[shard].Lock()
 					w.updates[shard] = false
 					buffer := w.buffers[shard]
-					bs := buffer.Bytes()
-					if len(bs) > 0 {
-						w.buffer.Write(bs)
+					if buffer.Len() > 0 {
+						w.buffer.Write(buffer.Bytes())
 						buffer.Reset()
 					}
 					w.locks[shard].Unlock()
@@ -693,9 +692,8 @@ func (w *ConcurrentFileWriter) Close() (err error) {
 	<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without locks
 	for i := 0; i < w.cpuCount; i++ {
 		buffer := w.buffers[i]
-		bs := buffer.Bytes()
-		if len(bs) > 0 {
-			w.buffer.Write(bs)
+		if buffer.Len() > 0 {
+			w.buffer.Write(buffer.Bytes())
 			buffer.Reset()
 		}
 	}
