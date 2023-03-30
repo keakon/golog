@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -534,11 +535,10 @@ var nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 
 type ConcurrentFileWriter struct {
 	bufferedFileWriter
-	cpuCount    int
-	locks       []sync.Mutex
-	buffers     []*bytes.Buffer
+	buffers     [2]atomic.Value //  [2]*[]*bytes.Buffer
 	stopChan    chan struct{}
 	stoppedChan chan struct{}
+	cpuCount    int
 }
 
 // NewBufferedFileWriter creates a new BufferedFileWriter.
@@ -556,8 +556,6 @@ func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (
 			bufferSize: defaultBufferSize,
 		},
 		cpuCount:    cpuCount,
-		locks:       make([]sync.Mutex, cpuCount),
-		buffers:     make([]*bytes.Buffer, cpuCount),
 		stopChan:    make(chan struct{}),
 		stoppedChan: make(chan struct{}, 1),
 	}
@@ -567,8 +565,13 @@ func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (
 	}
 
 	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
-	for i := 0; i < cpuCount; i++ {
-		w.buffers[i] = bytes.NewBuffer(make([]byte, 0, w.bufferSize))
+	for j := 0; j < 2; j++ {
+		buffers := make([]*bytes.Buffer, cpuCount)
+		for i := 0; i < cpuCount; i++ {
+			buffer := bytes.NewBuffer(make([]byte, 0, w.bufferSize))
+			buffers[i] = buffer
+		}
+		w.buffers[j].Store(&buffers)
 	}
 
 	go w.schedule()
@@ -580,14 +583,18 @@ func (w *ConcurrentFileWriter) schedule() {
 	for {
 		select {
 		case <-timer.C:
+			buffers0, ok := w.buffers[0].Load().(*[]*bytes.Buffer)
+			if !ok {
+				logError(errors.New("failed to load buffers"))
+			}
+			w.buffers[0].Store(w.buffers[1].Load())
+			w.buffers[1].Store(buffers0)
 			for shard := 0; shard < w.cpuCount; shard++ {
-				w.locks[shard].Lock()
-				buffer := w.buffers[shard]
+				buffer := (*buffers0)[shard]
 				if buffer.Len() > 0 {
 					w.buffer.Write(buffer.Bytes())
 					buffer.Reset()
 				}
-				w.locks[shard].Unlock()
 			}
 
 			if w.buffer.Buffered() > 0 {
@@ -611,9 +618,12 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 	shard := runtime_procPin()
 	runtime_procUnpin() // can't hold the lock for long
 
-	w.locks[shard].Lock()
-	n, err = w.buffers[shard].Write(p)
-	w.locks[shard].Unlock()
+	buffers, ok := w.buffers[0].Load().(*[]*bytes.Buffer)
+	if !ok {
+		logError(errors.New("failed to load buffers"))
+	} else {
+		n, err = (*buffers)[shard].Write(p)
+	}
 	return
 }
 
@@ -623,10 +633,16 @@ func (w *ConcurrentFileWriter) Close() (err error) {
 	<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without locks
 
 	for shard := 0; shard < w.cpuCount; shard++ {
-		buffer := w.buffers[shard]
-		if buffer.Len() > 0 {
-			w.buffer.Write(buffer.Bytes())
-			buffer.Reset()
+		for i := 0; i < 2; i++ {
+			buffers, ok := w.buffers[i].Load().(*[]*bytes.Buffer)
+			if !ok {
+				logError(errors.New("failed to load buffers"))
+			}
+			buffer := (*buffers)[shard]
+			if buffer.Len() > 0 {
+				w.buffer.Write(buffer.Bytes())
+				buffer.Reset()
+			}
 		}
 	}
 
