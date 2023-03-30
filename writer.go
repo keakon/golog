@@ -591,7 +591,10 @@ func (w *ConcurrentFileWriter) schedule() {
 			}
 
 			if w.buffer.Buffered() > 0 {
-				w.buffer.Flush()
+				err := w.buffer.Flush()
+				if err != nil {
+					logError(err)
+				}
 			}
 
 			timer.Reset(flushDuration)
@@ -618,8 +621,9 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 func (w *ConcurrentFileWriter) Close() (err error) {
 	close(w.stopChan) // stops schedule()
 	<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without locks
-	for i := 0; i < w.cpuCount; i++ {
-		buffer := w.buffers[i]
+
+	for shard := 0; shard < w.cpuCount; shard++ {
+		buffer := w.buffers[shard]
 		if buffer.Len() > 0 {
 			w.buffer.Write(buffer.Bytes())
 			buffer.Reset()

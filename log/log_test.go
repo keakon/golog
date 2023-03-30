@@ -519,7 +519,7 @@ func BenchmarkConcurrentFileLogger(b *testing.B) {
 
 	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
-	w, err := golog.NewConcurrentFileWriter(path, golog.BytesBufferSize(1024*1024*8))
+	w, err := golog.NewConcurrentFileWriter(path, golog.BufferSize(1024*1024*8))
 	if err != nil {
 		b.Error(err)
 	}
@@ -543,7 +543,7 @@ func BenchmarkConcurrentFileLoggerParallel(b *testing.B) {
 
 	path := filepath.Join(os.TempDir(), "test.log")
 	os.Remove(path)
-	w, err := golog.NewConcurrentFileWriter(path, golog.BytesBufferSize(1024*1024*8))
+	w, err := golog.NewConcurrentFileWriter(path, golog.BufferSize(1024*1024*8))
 	if err != nil {
 		b.Error(err)
 	}
