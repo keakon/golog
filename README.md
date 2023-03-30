@@ -154,19 +154,19 @@ cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
 | DiscardLoggerParallel | 89.0ns ± 6% | 1.00 | 0B | 0 |
 | DiscardLoggerWithoutTimer | 691ns ± 7% | 1.43 | 0B | 0 |
 | DiscardLoggerWithoutTimerParallel | 129ns ± 5% | 1.45 | 0B | 0 |
-| NopLog | 1.5ns ±1% | 0.003 | 0B | 0 |
+| NopLog | 1.5ns ± 1% | 0.003 | 0B | 0 |
 | NopLogParallel | 0.22ns ± 3% | 0.002 | 0B | 0 |
 | MultiLevels | 2.77µs ± 7% | 5.73 | 0B | 0 |
-| MultiLevelsParallel | 532ns ±15% | 5.98 | 0B | 0 |
-| BufferedFileLogger | 576ns ± 5% | 1.19 | 0B | 0 |
-| BufferedFileLoggerParallel | 260ns ±11% | 2.92 | 0B | 0 |
-| ConcurrentFileLogger | 593ns ±1% | 1.23 | 0B | 0 |
-| ConcurrentFileLoggerParallel | 101ns ±2% | 1.13 | 0B | 0 |
+| MultiLevelsParallel | 532ns ± 15% | 5.98 | 0B | 0 |
+| BufferedFileLogger | 588ns ± 2% | 1.22 | 0B | 0 |
+| BufferedFileLoggerParallel | 241ns ± 1% | 2.71 | 0B | 0 |
+| ConcurrentFileLogger | 593ns ± 1% | 1.23 | 0B | 0 |
+| ConcurrentFileLoggerParallel | 101ns ± 2% | 1.13 | 0B | 0 |
 | | | | | |
 | DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
-| DiscardZerologParallel | 408ns ±10% | 4.58 | 280B | 3 |
-| DiscardZap | 2.13µs ±0% | 4.41 | 272B | 5 |
-| DiscardZapParallel | 465ns ±5% | 5.22 | 274B | 5 |
+| DiscardZerologParallel | 408ns ± 10% | 4.58 | 280B | 3 |
+| DiscardZap | 2.13µs ± 0% | 4.41 | 272B | 5 |
+| DiscardZapParallel | 465ns ± 5% | 5.22 | 274B | 5 |
 
 * DiscardLogger: writes logs to `ioutil.Discard`
 * DiscardLoggerWithoutTimer: the same as above but without fast timer

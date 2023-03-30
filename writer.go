@@ -150,8 +150,8 @@ func (w *BufferedFileWriter) schedule() {
 
 		select {
 		case <-timer.C:
-			w.lock.Lock()
 			var err error
+			w.lock.Lock()
 			if w.file != nil { // not closed
 				w.updated = false
 				err = w.buffer.Flush()
@@ -173,12 +173,15 @@ func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	n, err = w.buffer.Write(p)
 	if !w.updated && n > 0 && w.buffer.Buffered() > 0 { // checks w.updated to prevent notifying w.updateChan twice
 		w.updated = true
+		w.lock.Unlock()
+
 		select { // ignores if blocked
 		case w.updateChan <- struct{}{}:
 		default:
 		}
+	} else {
+		w.lock.Unlock()
 	}
-	w.lock.Unlock()
 	return
 }
 
@@ -282,7 +285,11 @@ func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 
 		if !w.updated && w.buffer.Buffered() > 0 {
 			w.updated = true
-			w.updateChan <- struct{}{}
+
+			select { // ignores if blocked
+			case w.updateChan <- struct{}{}:
+			default:
+			}
 		}
 	}
 
