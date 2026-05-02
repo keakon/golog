@@ -243,8 +243,8 @@ func TestCloseLogger(t *testing.T) {
 	if len(h.writers) > 0 {
 		t.Error("closed handler is not empty")
 	}
-	if w.File != nil {
-		t.Error("close logger left its writer opened")
+	if w.File == nil {
+		t.Error("close logger closed console writer")
 	}
 	l.Close()
 }

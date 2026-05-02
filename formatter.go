@@ -178,7 +178,11 @@ type LevelFormatPart struct{}
 
 // Format writes the short level name of the record to the buf.
 func (p *LevelFormatPart) Format(r *Record, buf *bytes.Buffer) {
-	buf.WriteByte(levelNames[int(r.level)])
+	if int(r.level) < len(levelNames) {
+		buf.WriteByte(levelNames[int(r.level)])
+	} else {
+		buf.WriteByte('?')
+	}
 }
 
 // TimeFormatPart is a FormatPart of the time placeholder.

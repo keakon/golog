@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -41,14 +42,13 @@ type DiscardWriter struct {
 	io.Writer
 }
 
-// NewDiscardWriter creates a new ConsoleWriter.
+// NewDiscardWriter creates a new DiscardWriter.
 func NewDiscardWriter() *DiscardWriter {
-	return &DiscardWriter{Writer: ioutil.Discard}
+	return &DiscardWriter{Writer: io.Discard}
 }
 
-// Close sets its Writer to nil.
+// Close does nothing.
 func (w *DiscardWriter) Close() error {
-	w.Writer = nil
 	return nil
 }
 
@@ -72,9 +72,8 @@ func NewStderrWriter() *ConsoleWriter {
 	return NewConsoleWriter(os.Stderr)
 }
 
-// Close sets its File to nil.
+// Close does nothing.
 func (w *ConsoleWriter) Close() error {
-	w.File = nil
 	return nil
 }
 
@@ -170,6 +169,10 @@ func (w *BufferedFileWriter) schedule() {
 // Write writes a byte slice to the buffer.
 func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	w.lock.Lock()
+	if w.file == nil {
+		w.lock.Unlock()
+		return 0, os.ErrClosed
+	}
 	n, err = w.buffer.Write(p)
 	if !w.updated && n > 0 && w.buffer.Buffered() > 0 { // checks w.updated to prevent notifying w.updateChan twice
 		w.updated = true
@@ -187,8 +190,13 @@ func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 
 // Close flushes the buffer, then closes the file writer.
 func (w *BufferedFileWriter) Close() error {
-	close(w.stopChan)
 	w.lock.Lock()
+	if w.file == nil {
+		w.lock.Unlock()
+		return nil
+	}
+
+	close(w.stopChan)
 	err := w.buffer.Flush()
 	w.buffer = nil
 	if err == nil {
@@ -268,6 +276,10 @@ func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
+	if w.file == nil {
+		return 0, os.ErrClosed
+	}
+
 	n, err = w.buffer.Write(p)
 	if n > 0 {
 		w.pos += uint64(n)
@@ -319,7 +331,7 @@ func (w *RotatingFileWriter) rotate() error {
 		oldPath := fmt.Sprintf("%s.%d", w.path, i-1)
 		newPath := fmt.Sprintf("%s.%d", w.path, i)
 		e := os.Rename(oldPath, newPath)
-		if e != nil {
+		if e != nil && !os.IsNotExist(e) {
 			logError(e)
 		}
 	}
@@ -489,6 +501,7 @@ func (w *TimedRotatingFileWriter) purge() {
 		return
 	}
 
+	pathes = filterTimedRotatingFiles(pathes, w.pathPrefix, w.rotateDuration)
 	count := len(pathes) - int(w.backupCount) - 1
 	if count > 0 {
 		var name string
@@ -508,6 +521,93 @@ func (w *TimedRotatingFileWriter) purge() {
 			}
 		}
 	}
+}
+
+func filterTimedRotatingFiles(pathes []string, pathPrefix string, rotateDuration RotateDuration) []string {
+	filtered := pathes[:0]
+	for _, path := range pathes {
+		if isTimedRotatingFile(path, pathPrefix, rotateDuration) {
+			filtered = append(filtered, path)
+		}
+	}
+	return filtered
+}
+
+func isTimedRotatingFile(path string, pathPrefix string, rotateDuration RotateDuration) bool {
+	if !strings.HasPrefix(path, pathPrefix) {
+		return false
+	}
+
+	suffix := path[len(pathPrefix):]
+	switch rotateDuration {
+	case RotateByDate:
+		if len(suffix) != len(rotateByDateFormat) {
+			return false
+		}
+		for i, c := range suffix {
+			switch i {
+			case 0:
+				if c != '-' {
+					return false
+				}
+			case 9:
+				if c != '.' {
+					return false
+				}
+			case 10:
+				if c != 'l' {
+					return false
+				}
+			case 11:
+				if c != 'o' {
+					return false
+				}
+			case 12:
+				if c != 'g' {
+					return false
+				}
+			default:
+				if c < '0' || c > '9' {
+					return false
+				}
+			}
+		}
+		return true
+	case RotateByHour:
+		if len(suffix) != len(rotateByHourFormat) {
+			return false
+		}
+		for i, c := range suffix {
+			switch i {
+			case 0:
+				if c != '-' {
+					return false
+				}
+			case 11:
+				if c != '.' {
+					return false
+				}
+			case 12:
+				if c != 'l' {
+					return false
+				}
+			case 13:
+				if c != 'o' {
+					return false
+				}
+			case 14:
+				if c != 'g' {
+					return false
+				}
+			default:
+				if c < '0' || c > '9' {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // openTimedRotatingFile opens a log file for TimedRotatingFileWriter
@@ -546,9 +646,12 @@ type ConcurrentFileWriter struct {
 	buffers     []*bytes.Buffer
 	stopChan    chan struct{}
 	stoppedChan chan struct{}
+	closeOnce   sync.Once
+	closeErr    error
+	closed      uint32
 }
 
-// NewBufferedFileWriter creates a new BufferedFileWriter.
+// NewConcurrentFileWriter creates a new ConcurrentFileWriter.
 func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (*ConcurrentFileWriter, error) {
 	f, err := os.OpenFile(path, fileFlag, fileMode)
 	if err != nil {
@@ -615,39 +718,51 @@ func (w *ConcurrentFileWriter) schedule() {
 
 // Write writes a byte slice to the buffer.
 func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
+	if atomic.LoadUint32(&w.closed) != 0 {
+		return 0, os.ErrClosed
+	}
+
 	shard := runtime_procPin()
 	runtime_procUnpin() // can't hold the lock for long
 
 	w.locks[shard].Lock()
-	n, err = w.buffers[shard].Write(p)
-	w.locks[shard].Unlock()
-	return
+	defer w.locks[shard].Unlock()
+
+	if atomic.LoadUint32(&w.closed) != 0 {
+		return 0, os.ErrClosed
+	}
+	return w.buffers[shard].Write(p)
 }
 
 // Close flushes the buffer, then closes the file writer.
-func (w *ConcurrentFileWriter) Close() (err error) {
-	close(w.stopChan) // stops schedule()
-	<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without locks
+func (w *ConcurrentFileWriter) Close() error {
+	w.closeOnce.Do(func() {
+		atomic.StoreUint32(&w.closed, 1)
+		close(w.stopChan) // stops schedule()
+		<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without its flush loop
 
-	for shard := 0; shard < w.cpuCount; shard++ {
-		buffer := w.buffers[shard]
-		if buffer.Len() > 0 {
-			w.buffer.Write(buffer.Bytes())
-			buffer.Reset()
+		for shard := 0; shard < w.cpuCount; shard++ {
+			w.locks[shard].Lock()
+			buffer := w.buffers[shard]
+			if buffer.Len() > 0 {
+				w.buffer.Write(buffer.Bytes())
+				buffer.Reset()
+			}
+			w.locks[shard].Unlock()
 		}
-	}
 
-	if w.buffer.Buffered() > 0 {
-		err = w.buffer.Flush()
-	}
-	if err == nil {
-		err = w.file.Close()
-	} else {
-		e := w.file.Close()
-		if e != nil {
-			logError(e)
+		if w.buffer.Buffered() > 0 {
+			w.closeErr = w.buffer.Flush()
 		}
-	}
-	w.file = nil
-	return err
+		if w.closeErr == nil {
+			w.closeErr = w.file.Close()
+		} else {
+			e := w.file.Close()
+			if e != nil {
+				logError(e)
+			}
+		}
+		w.file = nil
+	})
+	return w.closeErr
 }

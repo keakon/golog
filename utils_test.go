@@ -48,6 +48,14 @@ func TestUint2Bytes4(t *testing.T) {
 	}
 }
 
+func TestFastTimerStartStopIdempotent(t *testing.T) {
+	StopFastTimer()
+	StartFastTimer()
+	StartFastTimer()
+	StopFastTimer()
+	StopFastTimer()
+}
+
 func TestUint2DynamicBytes(t *testing.T) {
 	bs := string(uint2DynamicBytes(0))
 	if bs != "0" {

@@ -100,8 +100,10 @@ func uint2Bytes2(x int) []byte {
 }
 
 func uint2Bytes4(x int) []byte {
-	// x should between 1970 and 2038
-	return uintBytes4[x-1970]
+	if x >= 1970 && x < 1970+len(uintBytes4) {
+		return uintBytes4[x-1970]
+	}
+	return uint2Bytes(x, 4)
 }
 
 func fastUint2DynamicBytes(x int) []byte {
@@ -186,6 +188,7 @@ type FastTimer struct {
 	time      string
 	stopChan  chan struct{}
 	isRunning bool
+	controlMu sync.Mutex
 }
 
 func (t *FastTimer) update(tm time.Time, buf *bytes.Buffer) {
@@ -209,11 +212,18 @@ func (t *FastTimer) update(tm time.Time, buf *bytes.Buffer) {
 }
 
 func (t *FastTimer) start() {
+	t.controlMu.Lock()
+	if t.isRunning {
+		t.controlMu.Unlock()
+		return
+	}
+
 	buf := bytes.NewBuffer(make([]byte, 0, dateTimeBufSize))
 	t.update(now(), buf)
 	t.isRunning = true
-
 	t.stopChan = make(chan struct{})
+	stopChan := t.stopChan
+	t.controlMu.Unlock()
 
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -223,9 +233,7 @@ func (t *FastTimer) start() {
 			select {
 			case tm := <-ticker.C:
 				t.update(tm, buf)
-			case <-t.stopChan:
-				defer func() { recover() }() // t.stopChan might be closed twice during exiting
-				close(t.stopChan)
+			case <-stopChan:
 				return
 			}
 		}
@@ -233,11 +241,14 @@ func (t *FastTimer) start() {
 }
 
 func (t *FastTimer) stop() {
-	if t.isRunning {
-		defer func() { recover() }() // t.stopChan might be closed during exiting
-		t.stopChan <- struct{}{}
-		t.isRunning = false
+	t.controlMu.Lock()
+	if !t.isRunning {
+		t.controlMu.Unlock()
+		return
 	}
+	close(t.stopChan)
+	t.isRunning = false
+	t.controlMu.Unlock()
 }
 
 // StartFastTimer starts the fastTimer.

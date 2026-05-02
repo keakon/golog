@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestParseFormat(t *testing.T) {
@@ -210,6 +211,14 @@ func TestLevelFormatPart(t *testing.T) {
 	if bs != "I" {
 		t.Error()
 	}
+
+	r.level = Level(99)
+	buf.Reset()
+	part.Format(r, buf)
+	bs = buf.String()
+	if bs != "?" {
+		t.Error()
+	}
 }
 
 func TestTimeFormatPart(t *testing.T) {
@@ -237,6 +246,15 @@ func TestDateFormatPart(t *testing.T) {
 	bs := buf.String()
 	if bs != "2018-11-19" {
 		t.Error()
+	}
+
+	r.date = ""
+	r.tm = time.Date(2039, 1, 2, 0, 0, 0, 0, time.Local)
+	buf.Reset()
+	part.Format(r, buf)
+	bs = buf.String()
+	if bs != "2039-01-02" {
+		t.Error(bs)
 	}
 }
 

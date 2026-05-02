@@ -16,6 +16,9 @@ type Handler struct {
 // NewHandler creates a new Handler of the given level with the formatter.
 // Records with the lower level than the handler will be ignored.
 func NewHandler(level Level, formatter *Formatter) *Handler {
+	if formatter == nil {
+		formatter = DefaultFormatter
+	}
 	return &Handler{
 		level:     level,
 		formatter: formatter,

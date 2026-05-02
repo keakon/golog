@@ -2,6 +2,7 @@ package golog
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -54,6 +55,32 @@ func checkFileSizeN(t *testing.T, path string, size int64) {
 func TestMain(m *testing.M) {
 	SetInternalLogger(NewStderrLogger())
 	os.Exit(m.Run())
+}
+
+func TestConsoleWriterCloseIdempotent(t *testing.T) {
+	w := NewConsoleWriter(os.Stdout)
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if w.File == nil {
+		t.Error("ConsoleWriter.Close() closed its file")
+	}
+}
+
+func TestDiscardWriterCloseIdempotent(t *testing.T) {
+	w := NewDiscardWriter()
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if w.Writer == nil {
+		t.Error("DiscardWriter.Close() closed its writer")
+	}
 }
 
 func TestBufferedFileWriter(t *testing.T) {
@@ -152,7 +179,15 @@ func TestBufferedFileWriter(t *testing.T) {
 	}
 
 	f.Close()
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if _, err := w.Write([]byte("closed")); !errors.Is(err, os.ErrClosed) {
+		t.Errorf("Write() after Close() error is %v, expected %v", err, os.ErrClosed)
+	}
 }
 
 func TestRotatingFileWriter(t *testing.T) {
@@ -233,7 +268,12 @@ func TestRotatingFileWriter(t *testing.T) {
 	checkFileSize(t, path+".2", 210)
 	checkFileSizeN(t, path, 0)
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if _, err := w.Write([]byte("closed")); !errors.Is(err, os.ErrClosed) {
+		t.Errorf("Write() after Close() error is %v, expected %v", err, os.ErrClosed)
+	}
 }
 
 func TestTimedRotatingFileWriterByDate(t *testing.T) {
@@ -308,7 +348,12 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 		t.Error(err)
 	}
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if _, err := w.Write([]byte("closed")); !errors.Is(err, os.ErrClosed) {
+		t.Errorf("Write() after Close() error is %v, expected %v", err, os.ErrClosed)
+	}
 	setNowFunc(time.Now)
 	nextRotateDuration = oldNextRotateDuration
 }
@@ -426,6 +471,85 @@ func TestBadWriter(t *testing.T) {
 	}
 }
 
+func TestTimedRotatingFileWriterPurgeKeepsUnrelatedFiles(t *testing.T) {
+	dir := filepath.Join(os.TempDir(), "test-purge")
+	pathPrefix := filepath.Join(dir, "test")
+	if err := os.RemoveAll(dir); err != nil {
+		t.Error(err)
+	}
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Error(err)
+	}
+
+	files := []string{
+		pathPrefix + "-20181119.log",
+		pathPrefix + "-20181120.log",
+		pathPrefix + "-20181121.log",
+		pathPrefix + "-20181122.log",
+		pathPrefix + "-keep.txt",
+		pathPrefix + "-201811.log",
+		pathPrefix + "-201811221.log",
+	}
+	for _, file := range files {
+		if err := ioutil.WriteFile(file, []byte("x"), 0644); err != nil {
+			t.Error(err)
+		}
+	}
+
+	w := &TimedRotatingFileWriter{
+		pathPrefix:     pathPrefix,
+		rotateDuration: RotateByDate,
+		backupCount:    1,
+	}
+	w.purge()
+
+	for _, file := range files[4:] {
+		if _, err := os.Stat(file); err != nil {
+			t.Errorf("%s should not be purged: %v", file, err)
+		}
+	}
+}
+
+func TestTimedRotatingFileWriterPurgeKeepsUnrelatedHourlyFiles(t *testing.T) {
+	dir := filepath.Join(os.TempDir(), "test-purge-hour")
+	pathPrefix := filepath.Join(dir, "test")
+	if err := os.RemoveAll(dir); err != nil {
+		t.Error(err)
+	}
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Error(err)
+	}
+
+	files := []string{
+		pathPrefix + "-2018111916.log",
+		pathPrefix + "-2018111917.log",
+		pathPrefix + "-2018111918.log",
+		pathPrefix + "-2018112216.log",
+		pathPrefix + "-keep.txt",
+		pathPrefix + "-20181122.log",
+		pathPrefix + "-201811221.log",
+		pathPrefix + "-201811221600.log",
+	}
+	for _, file := range files {
+		if err := ioutil.WriteFile(file, []byte("x"), 0644); err != nil {
+			t.Error(err)
+		}
+	}
+
+	w := &TimedRotatingFileWriter{
+		pathPrefix:     pathPrefix,
+		rotateDuration: RotateByHour,
+		backupCount:    1,
+	}
+	w.purge()
+
+	for _, file := range files[4:] {
+		if _, err := os.Stat(file); err != nil {
+			t.Errorf("%s should not be purged: %v", file, err)
+		}
+	}
+}
+
 func TestNextRotateDuration(t *testing.T) {
 	if nextRotateDuration(RotateByDate) > time.Hour*24 {
 		t.Errorf("nextRotateDuration(RotateByDate) longer than 1 day")
@@ -540,5 +664,13 @@ func TestConcurrentFileWriter(t *testing.T) {
 	}
 
 	f.Close()
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+	if _, err := w.Write([]byte("closed")); !errors.Is(err, os.ErrClosed) {
+		t.Errorf("Write() after Close() error is %v, expected %v", err, os.ErrClosed)
+	}
 }

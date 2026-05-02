@@ -12,9 +12,9 @@
 4. Customizable output format
 5. Rotating by size, date or hour
 6. Cross platform, tested on Linux, macOS and Windows
-7. No 3rd party dependance
+7. No 3rd party dependency
 8. Fast
-9. Thread safe
+9. Thread safe when logger configuration is completed before concurrent logging starts
 
 ## Installation
 
@@ -107,7 +107,7 @@ func main() {
 }
 ```
 
-The fast timer is about 30% faster than calling time.Time() for each logging record. But it's not thread-safe which may cause some problems (I think those are negligible in most cases):
+The fast timer is about 30% faster than calling time.Time() for each logging record. But it's not race-free which may cause some problems (I think those are negligible in most cases):
 1. The timer updates every 1 second, so the logging time can be at most 1 second behind the real time.
 2. Each thread will notice the changes of timer in a few milliseconds, so the concurrent logging messages may get different logging time (less than 2% probability). eg:
 ```
@@ -138,6 +138,14 @@ func main() {
 The `ConcurrentFileWriter` is designed for high concurrency applications.
 It is about 140% faster than `BufferedFileWriter` at 6C12H by reducing the lock overhead, but a little slower at single thread.  
 **Note**: The order of logging records from different cpu cores within each 0.1 second is random.
+
+## Notes
+
+`Logger.Close`, `Handler.Close`, `BufferedFileWriter.Close`, and `ConcurrentFileWriter.Close` are idempotent. Writing to a closed file writer returns `os.ErrClosed`.
+
+`ConsoleWriter.Close` and `DiscardWriter.Close` are no-op operations because they do not own an operating-system resource that should be closed by this package.
+
+Configure loggers, handlers, and the package-level default logger before starting concurrent logging. Concurrent logging is safe after configuration is complete.
 
 ## Benchmarks
 
