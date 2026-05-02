@@ -1,6 +1,7 @@
 package golog
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,12 +14,18 @@ func TestConcurrentFileWriterRace(t *testing.T) {
 	const goroutines = 100
 	const writesPerGoroutine = 100
 
-	path := filepath.Join(os.TempDir(), "test-concurrent-race.log")
+	path := filepath.Join(t.TempDir(), "test-concurrent-race.log")
 	w, err := NewConcurrentFileWriter(path, BufferSize(1024))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(path)
+
+	var expectedSize int64
+	for i := 0; i < goroutines; i++ {
+		for j := 0; j < writesPerGoroutine; j++ {
+			expectedSize += int64(len(fmt.Sprintf("goroutine-%d-write-%d\n", i, j)))
+		}
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
@@ -53,17 +60,17 @@ func TestConcurrentFileWriterRace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	minExpectedSize := int64(goroutines * writesPerGoroutine * 20)
-	if stat.Size() < minExpectedSize {
-		t.Errorf("file size %d is too small, expected at least %d", stat.Size(), minExpectedSize)
+	if stat.Size() != expectedSize {
+		t.Errorf("file size %d, expected %d", stat.Size(), expectedSize)
 	}
 }
 
 func TestConcurrentFileWriterCloseRace(t *testing.T) {
 	const iterations = 50
 
+	dir := t.TempDir()
 	for iter := 0; iter < iterations; iter++ {
-		path := filepath.Join(os.TempDir(), fmt.Sprintf("test-close-race-%d.log", iter))
+		path := filepath.Join(dir, fmt.Sprintf("test-close-race-%d.log", iter))
 		w, err := NewConcurrentFileWriter(path, BufferSize(1024))
 		if err != nil {
 			t.Fatal(err)
@@ -75,36 +82,48 @@ func TestConcurrentFileWriterCloseRace(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 100; i++ {
-				w.Write([]byte("data\n"))
+				if _, err := w.Write([]byte("data\n")); err != nil {
+					if !errors.Is(err, os.ErrClosed) {
+						t.Errorf("Write failed: %v", err)
+					}
+					return
+				}
 			}
 		}()
 
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 100; i++ {
-				w.Write([]byte("more\n"))
+				if _, err := w.Write([]byte("more\n")); err != nil {
+					if !errors.Is(err, os.ErrClosed) {
+						t.Errorf("Write failed: %v", err)
+					}
+					return
+				}
 			}
 		}()
 
 		go func() {
 			defer wg.Done()
 			time.Sleep(time.Millisecond)
-			w.Close()
+			if err := w.Close(); err != nil {
+				t.Errorf("Close failed: %v", err)
+			}
 		}()
 
 		wg.Wait()
-		w.Close()
-		os.Remove(path)
+		if err := w.Close(); err != nil {
+			t.Errorf("Close failed: %v", err)
+		}
 	}
 }
 
 func TestConcurrentFileWriterMultipleClose(t *testing.T) {
-	path := filepath.Join(os.TempDir(), "test-multi-close.log")
+	path := filepath.Join(t.TempDir(), "test-multi-close.log")
 	w, err := NewConcurrentFileWriter(path, BufferSize(1024))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(path)
 
 	const goroutines = 50
 	var wg sync.WaitGroup
@@ -113,7 +132,9 @@ func TestConcurrentFileWriterMultipleClose(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			w.Close()
+			if err := w.Close(); err != nil {
+				t.Errorf("Close failed: %v", err)
+			}
 		}()
 	}
 
@@ -123,8 +144,9 @@ func TestConcurrentFileWriterMultipleClose(t *testing.T) {
 func TestBufferedFileWriterConcurrentWriteClose(t *testing.T) {
 	const iterations = 50
 
+	dir := t.TempDir()
 	for iter := 0; iter < iterations; iter++ {
-		path := filepath.Join(os.TempDir(), fmt.Sprintf("test-buffered-race-%d.log", iter))
+		path := filepath.Join(dir, fmt.Sprintf("test-buffered-race-%d.log", iter))
 		w, err := NewBufferedFileWriter(path, BufferSize(1024))
 		if err != nil {
 			t.Fatal(err)
@@ -136,27 +158,36 @@ func TestBufferedFileWriterConcurrentWriteClose(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 100; i++ {
-				w.Write([]byte("test data\n"))
+				if _, err := w.Write([]byte("test data\n")); err != nil {
+					if !errors.Is(err, os.ErrClosed) {
+						t.Errorf("Write failed: %v", err)
+					}
+					return
+				}
 			}
 		}()
 
 		go func() {
 			defer wg.Done()
 			time.Sleep(time.Millisecond)
-			w.Close()
+			if err := w.Close(); err != nil {
+				t.Errorf("Close failed: %v", err)
+			}
 		}()
 
 		wg.Wait()
-		w.Close()
-		os.Remove(path)
+		if err := w.Close(); err != nil {
+			t.Errorf("Close failed: %v", err)
+		}
 	}
 }
 
 func TestRotatingFileWriterConcurrentWriteClose(t *testing.T) {
 	const iterations = 20
 
+	dir := t.TempDir()
 	for iter := 0; iter < iterations; iter++ {
-		path := filepath.Join(os.TempDir(), fmt.Sprintf("test-rotating-race-%d.log", iter))
+		path := filepath.Join(dir, fmt.Sprintf("test-rotating-race-%d.log", iter))
 		w, err := NewRotatingFileWriter(path, 1024, 2, BufferSize(512))
 		if err != nil {
 			t.Fatal(err)
@@ -168,21 +199,27 @@ func TestRotatingFileWriterConcurrentWriteClose(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 50; i++ {
-				w.Write([]byte("test data for rotation\n"))
+				if _, err := w.Write([]byte("test data for rotation\n")); err != nil {
+					if !errors.Is(err, os.ErrClosed) {
+						t.Errorf("Write failed: %v", err)
+					}
+					return
+				}
 			}
 		}()
 
 		go func() {
 			defer wg.Done()
 			time.Sleep(2 * time.Millisecond)
-			w.Close()
+			if err := w.Close(); err != nil {
+				t.Errorf("Close failed: %v", err)
+			}
 		}()
 
 		wg.Wait()
-		w.Close()
-		os.Remove(path)
-		os.Remove(path + ".1")
-		os.Remove(path + ".2")
+		if err := w.Close(); err != nil {
+			t.Errorf("Close failed: %v", err)
+		}
 	}
 }
 
@@ -220,12 +257,11 @@ func TestConcurrentFileWriterHighLoad(t *testing.T) {
 	const writesPerGoroutine = 1000
 	const dataSize = 100
 
-	path := filepath.Join(os.TempDir(), "test-high-load.log")
+	path := filepath.Join(t.TempDir(), "test-high-load.log")
 	w, err := NewConcurrentFileWriter(path, BufferSize(8192))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(path)
 
 	data := make([]byte, dataSize)
 	for i := 0; i < dataSize-1; i++ {
@@ -285,12 +321,11 @@ func TestBufferedFileWriterHighLoad(t *testing.T) {
 	const writes = 100000
 	const dataSize = 100
 
-	path := filepath.Join(os.TempDir(), "test-buffered-high-load.log")
+	path := filepath.Join(t.TempDir(), "test-buffered-high-load.log")
 	w, err := NewBufferedFileWriter(path, BufferSize(8192))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(path)
 
 	data := make([]byte, dataSize)
 	for i := 0; i < dataSize-1; i++ {
