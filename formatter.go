@@ -240,7 +240,7 @@ func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 			}
 			buf.WriteString(r.file[start:end])
 			buf.WriteByte(':')
-			buf.Write(fastUint2DynamicBytes(r.line))
+			writeUintToBuf(buf, r.line)
 			return
 		}
 	}
@@ -255,7 +255,7 @@ func (p *FullSourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	if r.line > 0 {
 		buf.WriteString(r.file)
 		buf.WriteByte(':')
-		buf.Write(fastUint2DynamicBytes(r.line))
+		writeUintToBuf(buf, r.line)
 	} else {
 		buf.Write(unknownFile)
 	}

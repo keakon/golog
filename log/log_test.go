@@ -321,6 +321,48 @@ func BenchmarkDiscardLoggerParallel(b *testing.B) {
 	l.Close()
 }
 
+func BenchmarkDiscardLoggerWithArgs(b *testing.B) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	w := golog.NewDiscardWriter()
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		Infof("count=%d name=%s", i, "test")
+	}
+	l.Close()
+}
+
+func BenchmarkDiscardLoggerWithArgsParallel(b *testing.B) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	w := golog.NewDiscardWriter()
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	b.ResetTimer()
+
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			Infof("count=%d name=%s", i, "test")
+			i++
+		}
+	})
+	l.Close()
+}
+
 func BenchmarkDiscardLoggerWithoutTimer(b *testing.B) {
 	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)

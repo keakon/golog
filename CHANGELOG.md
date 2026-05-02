@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 - Clarified that logger configuration should be completed before concurrent logging starts.
 - Clarified that the fast timer is not race-free.
 - Updated CI to test newer Go versions and run race tests for all packages.
+- Replace `fastUint2DynamicBytes` with `writeUintToBuf` that writes line numbers directly into the buffer, eliminating heap allocation for line numbers > 1000.
+- Set `r.args = nil` before returning `Record` to pool, reducing GC pressure by preventing pooled objects from retaining external references.
 
 ## v0.1.0
 

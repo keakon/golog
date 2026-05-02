@@ -108,6 +108,7 @@ func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interf
 		}
 	}
 
+	r.args = nil
 	recordPool.Put(r)
 }
 

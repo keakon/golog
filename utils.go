@@ -106,36 +106,30 @@ func uint2Bytes4(x int) []byte {
 	return uint2Bytes(x, 4)
 }
 
-func fastUint2DynamicBytes(x int) []byte {
-	// x should be uint32
-	size := 0
-	switch {
-	case x < 2:
-		return []byte{byte(x) + '0'}
-	case x <= 1000:
-		return uintBytes[x-2]
-	case x < 10000:
-		size = 4
-	case x < 100000:
-		size = 5
-	case x < 1000000:
-		size = 6
-	case x < 10000000:
-		size = 7
-	case x < 100000000:
-		size = 8
-	case x < 1000000000:
-		size = 9
-	default:
-		size = 10
+// writeUintToBuf writes a non-negative integer to buf without heap allocation.
+// For values <= 1000, it uses the pre-computed uintBytes lookup table.
+// For larger values, it writes digits directly to the buffer using a stack-allocated array.
+// REQUIRES: x >= 0 (negative values will produce incorrect output)
+func writeUintToBuf(buf *bytes.Buffer, x int) {
+	if x >= 2 && x <= 1000 {
+		buf.Write(uintBytes[x-2])
+		return
 	}
-	result := make([]byte, size)
-	for i := 0; i < size; i++ {
-		r := x % 10
-		result[size-i-1] = byte(r) + '0'
-		x /= 10
+	if x < 2 {
+		buf.WriteByte(byte(x) + '0')
+		return
 	}
-	return result
+	// For larger values, compute digits and write them using a small stack buffer.
+	// Use a buffer large enough for max int64 (19 digits) to avoid out-of-bounds panic.
+	var b [20]byte
+	i := len(b)
+	tmp := x
+	for tmp > 0 {
+		i--
+		b[i] = byte(tmp%10) + '0'
+		tmp /= 10
+	}
+	buf.Write(b[i:])
 }
 
 func stopTimer(timer *time.Timer) {
