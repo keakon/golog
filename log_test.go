@@ -1,13 +1,7 @@
-//go:build !race
-// +build !race
-
-// golog.FastTimer is not thread-safe.
-
 package golog
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +48,7 @@ func TestLogger(t *testing.T) {
 		t.Errorf("file size are %d", stat.Size())
 	}
 
-	debugContent, err := ioutil.ReadFile(debugPath)
+	debugContent, err := os.ReadFile(debugPath)
 	if err != nil {
 		t.Error(err)
 	}
@@ -65,7 +59,7 @@ func TestLogger(t *testing.T) {
 
 	l.Infof("test %d", 2)
 
-	infoContent, err := ioutil.ReadFile(infoPath)
+	infoContent, err := os.ReadFile(infoPath)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,7 +91,7 @@ func TestLogger(t *testing.T) {
 		t.Errorf("parts[5] is " + parts[5])
 	}
 
-	debugContent, err = ioutil.ReadFile(debugPath)
+	debugContent, err = os.ReadFile(debugPath)
 	if err != nil {
 		t.Error(err)
 	}
@@ -123,7 +117,7 @@ func TestLogger(t *testing.T) {
 	l.Errorf("1")
 	l.Critf("1")
 
-	infoContent, err = ioutil.ReadFile(infoPath)
+	infoContent, err = os.ReadFile(infoPath)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,7 +126,7 @@ func TestLogger(t *testing.T) {
 		t.Error("info log size not changed")
 	}
 
-	debugContent, err = ioutil.ReadFile(debugPath)
+	debugContent, err = os.ReadFile(debugPath)
 	if err != nil {
 		t.Error(err)
 	}

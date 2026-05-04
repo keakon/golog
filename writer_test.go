@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -455,7 +454,7 @@ func TestBadWriter(t *testing.T) {
 
 	time.Sleep(flushDuration * 2)
 
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Error(err)
 	}
@@ -491,7 +490,7 @@ func TestTimedRotatingFileWriterPurgeKeepsUnrelatedFiles(t *testing.T) {
 		pathPrefix + "-201811221.log",
 	}
 	for _, file := range files {
-		if err := ioutil.WriteFile(file, []byte("x"), 0644); err != nil {
+		if err := os.WriteFile(file, []byte("x"), 0644); err != nil {
 			t.Error(err)
 		}
 	}
@@ -531,7 +530,7 @@ func TestTimedRotatingFileWriterPurgeKeepsUnrelatedHourlyFiles(t *testing.T) {
 		pathPrefix + "-201811221600.log",
 	}
 	for _, file := range files {
-		if err := ioutil.WriteFile(file, []byte("x"), 0644); err != nil {
+		if err := os.WriteFile(file, []byte("x"), 0644); err != nil {
 			t.Error(err)
 		}
 	}

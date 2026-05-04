@@ -2,8 +2,11 @@ package golog
 
 import (
 	"bytes"
+	"runtime"
 	"strconv"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestUint2Bytes(t *testing.T) {
@@ -58,6 +61,61 @@ func TestFastTimerStartStopIdempotent(t *testing.T) {
 	StartFastTimer()
 	StopFastTimer()
 	StopFastTimer()
+}
+
+func TestFastTimerStopWaitsForInFlightUpdate(t *testing.T) {
+	StopFastTimer()
+	defer StopFastTimer()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseHook := func() {
+		releaseOnce.Do(func() { close(release) })
+	}
+	defer releaseHook()
+
+	hookFn := fastTimerBeforeStoreHook(func() {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		<-release
+	})
+
+	StartFastTimer()
+	fastTimerHook.Store(&hookFn)
+	defer fastTimerHook.Store(nil)
+
+	select {
+	case <-started:
+	case <-time.After(1500 * time.Millisecond):
+		t.Fatal("timed out waiting for FastTimer background update")
+	}
+
+	stopped := make(chan struct{})
+	go func() {
+		StopFastTimer()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		t.Fatal("StopFastTimer returned before the in-flight update completed")
+	default:
+	}
+
+	releaseHook()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("StopFastTimer did not return after the in-flight update completed")
+	}
+
+	if snap := fastTimer.load(); snap != nil {
+		t.Fatal("FastTimer snapshot is not nil after StopFastTimer")
+	}
 }
 
 func TestUint2DynamicBytes(t *testing.T) {
@@ -169,5 +227,22 @@ func TestWriteUintToBuf(t *testing.T) {
 func BenchmarkCaller(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		Caller(1)
+	}
+}
+
+// BenchmarkCallerRuntimeCallers benchmarks the public runtime.Callers as a control
+// for BenchmarkCaller. If the gap between the two narrows to within measurement
+// noise, the linkname optimisation is no longer pulling its weight and could be
+// retired in favour of the supported API. See OPTIMIZATION_LESSONS.md.
+func BenchmarkCallerRuntimeCallers(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var pc [1]uintptr
+		n := runtime.Callers(2, pc[:])
+		if n < 1 {
+			continue
+		}
+		frame, _ := runtime.CallersFrames(pc[:]).Next()
+		_ = frame.File
+		_ = frame.Line
 	}
 }

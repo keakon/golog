@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	_ "unsafe"
 )
 
 const (
@@ -104,10 +105,30 @@ func BufferSize(size uint32) BufferedFileWriterOption {
 // or when reaching the buffer capacity (4 MB).
 type BufferedFileWriter struct {
 	bufferedFileWriter
-	lock       sync.Mutex
-	stopChan   chan struct{}
-	updateChan chan struct{}
-	updated    bool
+	lock        sync.Mutex
+	stopChan    chan struct{}
+	stoppedChan chan struct{}
+	updateChan  chan struct{}
+	closeOnce   sync.Once
+	closeErr    error
+	updated     bool
+}
+
+// initBufferedFileWriter populates the embedded BufferedFileWriter inside any of the
+// three buffered-file writer variants (BufferedFileWriter, RotatingFileWriter,
+// TimedRotatingFileWriter). It centralises the common boilerplate so the constructors
+// only need to declare their own outer fields.
+func initBufferedFileWriter(w *BufferedFileWriter, f *os.File, options []BufferedFileWriterOption) {
+	w.file = f
+	w.bufferSize = defaultBufferSize
+	w.updateChan = make(chan struct{}, 1)
+	w.stopChan = make(chan struct{})
+	w.stoppedChan = make(chan struct{})
+
+	for _, option := range options {
+		option(&w.bufferedFileWriter)
+	}
+	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 }
 
 // NewBufferedFileWriter creates a new BufferedFileWriter.
@@ -116,38 +137,25 @@ func NewBufferedFileWriter(path string, options ...BufferedFileWriterOption) (*B
 	if err != nil {
 		return nil, err
 	}
-	w := &BufferedFileWriter{
-		bufferedFileWriter: bufferedFileWriter{
-			file:       f,
-			bufferSize: defaultBufferSize,
-		},
-		updateChan: make(chan struct{}, 1),
-		stopChan:   make(chan struct{}),
-	}
-
-	for _, option := range options {
-		option(&w.bufferedFileWriter)
-	}
-	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
-
+	w := &BufferedFileWriter{}
+	initBufferedFileWriter(w, f, options)
 	go w.schedule()
 	return w, nil
 }
 
+// schedule runs in its own goroutine and flushes the buffer 100ms after the most
+// recent write. The single-select form is equivalent to the older "wait-for-update,
+// then wait-for-flush" two-phase loop because BufferedFileWriter.Write rate-limits
+// updateChan to one notification per flush cycle (controlled by w.updated).
 func (w *BufferedFileWriter) schedule() {
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(flushDuration)
+	stopTimer(timer) // start dormant; only fire after the first update
+
 	for {
 		select {
 		case <-w.updateChan:
-			// something has been written to the buffer, it can be flushed to the file later
 			stopTimer(timer)
 			timer.Reset(flushDuration)
-		case <-w.stopChan:
-			stopTimer(timer)
-			return
-		}
-
-		select {
 		case <-timer.C:
 			var err error
 			w.lock.Lock()
@@ -161,6 +169,7 @@ func (w *BufferedFileWriter) schedule() {
 			}
 		case <-w.stopChan:
 			stopTimer(timer)
+			close(w.stoppedChan)
 			return
 		}
 	}
@@ -188,28 +197,34 @@ func (w *BufferedFileWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-// Close flushes the buffer, then closes the file writer.
+// Close flushes the buffer, then closes the file writer. Idempotent.
+//
+// Concurrent Close calls are serialised: the first one stops the schedule goroutine,
+// flushes the remaining buffer, and closes the file; subsequent calls return the
+// recorded result without re-running the close path.
 func (w *BufferedFileWriter) Close() error {
-	w.lock.Lock()
-	if w.file == nil {
-		w.lock.Unlock()
-		return nil
-	}
+	w.closeOnce.Do(func() {
+		close(w.stopChan)
+		<-w.stoppedChan // wait for schedule() to exit so it cannot race with the final flush
 
-	close(w.stopChan)
-	err := w.buffer.Flush()
-	w.buffer = nil
-	if err == nil {
-		err = w.file.Close()
-	} else {
-		e := w.file.Close()
-		if e != nil {
-			logError(e)
+		w.lock.Lock()
+		defer w.lock.Unlock()
+		if w.file == nil {
+			return
 		}
-	}
-	w.file = nil
-	w.lock.Unlock()
-	return err
+		err := w.buffer.Flush()
+		w.buffer = nil
+		if err == nil {
+			err = w.file.Close()
+		} else {
+			if e := w.file.Close(); e != nil {
+				logError(e)
+			}
+		}
+		w.file = nil
+		w.closeErr = err
+	})
+	return w.closeErr
 }
 
 // A RotatingFileWriter is a buffered file writer which will rotate before reaching its maxSize.
@@ -240,35 +255,21 @@ func NewRotatingFileWriter(path string, maxSize uint64, backupCount uint8, optio
 
 	stat, err := f.Stat()
 	if err != nil {
-		e := f.Close()
-		if e != nil {
+		if e := f.Close(); e != nil {
 			logError(e)
 		}
 		return nil, err
 	}
 
-	w := RotatingFileWriter{
-		BufferedFileWriter: BufferedFileWriter{
-			bufferedFileWriter: bufferedFileWriter{
-				file:       f,
-				bufferSize: defaultBufferSize,
-			},
-			updateChan: make(chan struct{}, 1),
-			stopChan:   make(chan struct{}),
-		},
+	w := &RotatingFileWriter{
 		path:        path,
 		pos:         uint64(stat.Size()),
 		maxSize:     maxSize,
 		backupCount: backupCount,
 	}
-
-	for _, option := range options {
-		option(&w.bufferedFileWriter)
-	}
-	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
-
+	initBufferedFileWriter(&w.BufferedFileWriter, f, options)
 	go w.schedule()
-	return &w, nil
+	return w, nil
 }
 
 // Write writes a byte slice to the buffer and rotates if reaching its maxSize.
@@ -376,80 +377,50 @@ func NewTimedRotatingFileWriter(pathPrefix string, rotateDuration RotateDuration
 		return nil, err
 	}
 
-	w := TimedRotatingFileWriter{
-		BufferedFileWriter: BufferedFileWriter{
-			bufferedFileWriter: bufferedFileWriter{
-				file:       f,
-				bufferSize: defaultBufferSize,
-			},
-			updateChan: make(chan struct{}, 1),
-			stopChan:   make(chan struct{}),
-		},
+	w := &TimedRotatingFileWriter{
 		pathPrefix:     pathPrefix,
 		rotateDuration: rotateDuration,
 		backupCount:    backupCount,
 	}
-
-	for _, option := range options {
-		option(&w.bufferedFileWriter)
-	}
-	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
-
+	initBufferedFileWriter(&w.BufferedFileWriter, f, options)
 	go w.schedule()
-	return &w, nil
+	return w, nil
 }
 
+// schedule runs in its own goroutine. The single-select form merges the older
+// two-phase loop because BufferedFileWriter.Write rate-limits updateChan to one
+// notification per flush cycle (controlled by w.updated).
 func (w *TimedRotatingFileWriter) schedule() {
-	lock := &w.lock
-	flushTimer := time.NewTimer(0)
-	duration := nextRotateDuration(w.rotateDuration)
-	rotateTimer := time.NewTimer(duration)
+	flushTimer := time.NewTimer(flushDuration)
+	stopTimer(flushTimer) // start dormant; only fire after the first update
+
+	rotateTimer := time.NewTimer(nextRotateDuration(w.rotateDuration))
 
 	for {
-	updateLoop:
-		for {
-			select {
-			case <-w.updateChan:
-				stopTimer(flushTimer)
-				flushTimer.Reset(flushDuration)
-				break updateLoop
-			case <-rotateTimer.C:
-				err := w.rotate(rotateTimer)
-				if err != nil {
-					logError(err)
-				}
-			case <-w.stopChan:
-				stopTimer(flushTimer)
-				stopTimer(rotateTimer)
-				return
+		select {
+		case <-w.updateChan:
+			stopTimer(flushTimer)
+			flushTimer.Reset(flushDuration)
+		case <-flushTimer.C:
+			var err error
+			w.lock.Lock()
+			if w.file != nil { // not closed
+				w.updated = false
+				err = w.buffer.Flush()
 			}
-		}
-
-	flushLoop:
-		for {
-			select {
-			case <-flushTimer.C:
-				lock.Lock()
-				var err error
-				if w.file != nil { // not closed
-					w.updated = false
-					err = w.buffer.Flush()
-				}
-				lock.Unlock()
-				if err != nil {
-					logError(err)
-				}
-				break flushLoop
-			case <-rotateTimer.C:
-				err := w.rotate(rotateTimer)
-				if err != nil {
-					logError(err)
-				}
-			case <-w.stopChan:
-				stopTimer(flushTimer)
-				stopTimer(rotateTimer)
-				return
+			w.lock.Unlock()
+			if err != nil {
+				logError(err)
 			}
+		case <-rotateTimer.C:
+			if err := w.rotate(rotateTimer); err != nil {
+				logError(err)
+			}
+		case <-w.stopChan:
+			stopTimer(flushTimer)
+			stopTimer(rotateTimer)
+			close(w.stoppedChan)
+			return
 		}
 	}
 }
@@ -533,81 +504,38 @@ func filterTimedRotatingFiles(pathes []string, pathPrefix string, rotateDuration
 	return filtered
 }
 
+// isTimedRotatingFile reports whether path matches the rotation suffix pattern for
+// the given duration: "<prefix>-DDDDDDDD.log" for date or "<prefix>-DDDDDDDDDD.log"
+// for hour, where each D is an ASCII digit.
 func isTimedRotatingFile(path string, pathPrefix string, rotateDuration RotateDuration) bool {
 	if !strings.HasPrefix(path, pathPrefix) {
 		return false
 	}
-
 	suffix := path[len(pathPrefix):]
+
+	var digitCount int
 	switch rotateDuration {
 	case RotateByDate:
-		if len(suffix) != len(rotateByDateFormat) {
-			return false
-		}
-		for i, c := range suffix {
-			switch i {
-			case 0:
-				if c != '-' {
-					return false
-				}
-			case 9:
-				if c != '.' {
-					return false
-				}
-			case 10:
-				if c != 'l' {
-					return false
-				}
-			case 11:
-				if c != 'o' {
-					return false
-				}
-			case 12:
-				if c != 'g' {
-					return false
-				}
-			default:
-				if c < '0' || c > '9' {
-					return false
-				}
-			}
-		}
-		return true
+		digitCount = 8 // YYYYMMDD
 	case RotateByHour:
-		if len(suffix) != len(rotateByHourFormat) {
+		digitCount = 10 // YYYYMMDDHH
+	default:
+		return false
+	}
+
+	// Expected layout: '-' + N digits + ".log"
+	if len(suffix) != 1+digitCount+4 {
+		return false
+	}
+	if suffix[0] != '-' || !strings.HasSuffix(suffix, ".log") {
+		return false
+	}
+	for i := 1; i <= digitCount; i++ {
+		if suffix[i] < '0' || suffix[i] > '9' {
 			return false
 		}
-		for i, c := range suffix {
-			switch i {
-			case 0:
-				if c != '-' {
-					return false
-				}
-			case 11:
-				if c != '.' {
-					return false
-				}
-			case 12:
-				if c != 'l' {
-					return false
-				}
-			case 13:
-				if c != 'o' {
-					return false
-				}
-			case 14:
-				if c != 'g' {
-					return false
-				}
-			default:
-				if c < '0' || c > '9' {
-					return false
-				}
-			}
-		}
-		return true
 	}
-	return false
+	return true
 }
 
 // openTimedRotatingFile opens a log file for TimedRotatingFileWriter
@@ -648,7 +576,7 @@ type ConcurrentFileWriter struct {
 	stoppedChan chan struct{}
 	closeOnce   sync.Once
 	closeErr    error
-	closed      uint32
+	closed      atomic.Bool
 }
 
 // NewConcurrentFileWriter creates a new ConcurrentFileWriter.
@@ -669,7 +597,7 @@ func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (
 		locks:       make([]sync.Mutex, cpuCount),
 		buffers:     make([]*bytes.Buffer, cpuCount),
 		stopChan:    make(chan struct{}),
-		stoppedChan: make(chan struct{}, 1),
+		stoppedChan: make(chan struct{}),
 	}
 
 	for _, option := range options {
@@ -710,7 +638,7 @@ func (w *ConcurrentFileWriter) schedule() {
 			timer.Reset(flushDuration)
 		case <-w.stopChan:
 			stopTimer(timer)
-			w.stoppedChan <- struct{}{}
+			close(w.stoppedChan)
 			return
 		}
 	}
@@ -718,7 +646,7 @@ func (w *ConcurrentFileWriter) schedule() {
 
 // Write writes a byte slice to the buffer.
 func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
-	if atomic.LoadUint32(&w.closed) != 0 {
+	if w.closed.Load() {
 		return 0, os.ErrClosed
 	}
 
@@ -728,7 +656,7 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 	w.locks[shard].Lock()
 	defer w.locks[shard].Unlock()
 
-	if atomic.LoadUint32(&w.closed) != 0 {
+	if w.closed.Load() {
 		return 0, os.ErrClosed
 	}
 	return w.buffers[shard].Write(p)
@@ -737,7 +665,7 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 // Close flushes the buffer, then closes the file writer.
 func (w *ConcurrentFileWriter) Close() error {
 	w.closeOnce.Do(func() {
-		atomic.StoreUint32(&w.closed, 1)
+		w.closed.Store(true)
 		close(w.stopChan) // stops schedule()
 		<-w.stoppedChan   // waits for schedule() to finish, so the rest code can run without its flush loop
 
@@ -766,3 +694,19 @@ func (w *ConcurrentFileWriter) Close() error {
 	})
 	return w.closeErr
 }
+
+// runtime_procPin / runtime_procUnpin are used by ConcurrentFileWriter to obtain a
+// stable per-P shard index without atomic contention. The public runtime API does not
+// expose this primitive, and any alternative (atomic round-robin, hash of goroutine
+// ID, sync.Pool indirection) is measurably slower or requires its own linkname.
+//
+// If a future Go version blocks this linkname, build with -ldflags=-checklinkname=0
+// (Go 1.23+) or fall back to atomic round-robin and accept the contention overhead.
+//
+//go:noescape
+//go:linkname runtime_procPin runtime.procPin
+func runtime_procPin() int
+
+//go:noescape
+//go:linkname runtime_procUnpin runtime.procUnpin
+func runtime_procUnpin()

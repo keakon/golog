@@ -107,19 +107,13 @@ func main() {
 }
 ```
 
-The fast timer is about 30% faster than calling time.Time() for each logging record. But it's not race-free which may cause some problems (I think those are negligible in most cases):
+The fast timer is about 30% faster than calling `time.Now()` for each logging record. It is race-safe, with these timing characteristics:
 1. The timer updates every 1 second, so the logging time can be at most 1 second behind the real time.
-2. Each thread will notice the changes of timer in a few milliseconds, so the concurrent logging messages may get different logging time (less than 2% probability). eg:
+2. Concurrent readers may observe adjacent snapshots within a few milliseconds of an update, so concurrent logging messages can temporarily differ by 1 second. eg:
 ```
 [I 2021-09-13 14:31:25 log_test:206] test
 [I 2021-09-13 14:31:24 log_test:206] test
 [I 2021-09-13 14:31:25 log_test:206] test
-```
-3. When the day changing, the logging date and time might belong to different day. eg:
-```
-[I 2021-09-12 23:59:59 log_test:206] test
-[I 2021-09-13 23:59:59 log_test:206] test
-[I 2021-09-12 00:00:00 log_test:206] test
 ```
 
 ### ConcurrentFileWriter *(experimental)*

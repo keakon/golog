@@ -1,8 +1,3 @@
-//go:build !race
-// +build !race
-
-// golog.FastTimer is not thread-safe.
-
 package log
 
 import (
@@ -279,6 +274,32 @@ func TestIsEnabledFor(t *testing.T) {
 	if !IsEnabledFor(golog.ErrorLevel) {
 		t.Error("info logger is disabled for error level")
 	}
+}
+
+func TestSetDefaultLoggerNilDisablesPackageLoggers(t *testing.T) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	w := &memoryWriter{}
+	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	Info("test")
+	if w.Buffer.Len() == 0 {
+		t.Fatal("memoryWriter is empty before resetting default logger")
+	}
+	w.Buffer.Reset()
+
+	SetDefaultLogger(nil)
+	Info("test")
+	if w.Buffer.Len() != 0 {
+		t.Fatal("memoryWriter is not empty after resetting default logger")
+	}
+
+	l.Close()
 }
 
 func BenchmarkDiscardLogger(b *testing.B) {

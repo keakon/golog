@@ -48,46 +48,48 @@ func (f *Formatter) Format(r *Record, buf *bytes.Buffer) {
 	}
 }
 
+// findParts iteratively scans the format string and emits FormatParts.
+// Trailing '%' (no directive following) and unknown directives are emitted as
+// literal bytes, matching the historical behaviour.
 func (f *Formatter) findParts(format []byte) {
-	length := len(format)
-	index := bytes.IndexByte(format, '%')
-	if index == -1 || index == length-1 {
-		if length == 0 {
+	for len(format) > 0 {
+		index := bytes.IndexByte(format, '%')
+		if index < 0 || index == len(format)-1 {
+			// no '%' or trailing '%': everything is a literal
+			if len(format) == 1 {
+				f.appendByte(format[0])
+			} else {
+				f.appendBytes(format)
+			}
 			return
 		}
-		if length == 1 {
-			f.appendByte(format[0])
-		} else {
-			f.appendBytes(format)
+		if index > 0 {
+			if index == 1 {
+				f.appendByte(format[0])
+			} else {
+				f.appendBytes(format[:index])
+			}
 		}
-		return
+		switch c := format[index+1]; c {
+		case '%':
+			f.appendByte('%')
+		case 'l':
+			f.formatParts = append(f.formatParts, &LevelFormatPart{})
+		case 'T':
+			f.formatParts = append(f.formatParts, &TimeFormatPart{})
+		case 'D':
+			f.formatParts = append(f.formatParts, &DateFormatPart{})
+		case 's':
+			f.formatParts = append(f.formatParts, &SourceFormatPart{})
+		case 'S':
+			f.formatParts = append(f.formatParts, &FullSourceFormatPart{})
+		case 'm':
+			f.formatParts = append(f.formatParts, &MessageFormatPart{})
+		default:
+			f.appendBytes([]byte{'%', c})
+		}
+		format = format[index+2:]
 	}
-
-	if index > 1 {
-		f.appendBytes(format[:index])
-	} else if index == 1 {
-		f.appendByte(format[0])
-	}
-	switch c := format[index+1]; c {
-	case '%':
-		f.appendByte('%')
-	case 'l':
-		f.formatParts = append(f.formatParts, &LevelFormatPart{})
-	case 'T':
-		f.formatParts = append(f.formatParts, &TimeFormatPart{})
-	case 'D':
-		f.formatParts = append(f.formatParts, &DateFormatPart{})
-	case 's':
-		f.formatParts = append(f.formatParts, &SourceFormatPart{})
-	case 'S':
-		f.formatParts = append(f.formatParts, &FullSourceFormatPart{})
-	case 'm':
-		f.formatParts = append(f.formatParts, &MessageFormatPart{})
-	default:
-		f.appendBytes([]byte{'%', c})
-	}
-	f.findParts(format[index+2:])
-	return
 }
 
 // FormatPart is an interface containing the Format() method.
@@ -145,32 +147,23 @@ func (p *BytesFormatPart) Format(r *Record, buf *bytes.Buffer) {
 }
 
 // appendBytes appends a byte slice to the formatter.
-// If the previous FormatPart is a ByteFormatPart or BytesFormatPart, they will be merged into a BytesFormatPart;
-// otherwise a new BytesFormatPart will be created.
+// If the previous FormatPart is a BytesFormatPart, the bytes are merged into it;
+// otherwise a new BytesFormatPart is created.
 func (f *Formatter) appendBytes(bs []byte) {
 	parts := f.formatParts
 	count := len(parts)
 	if count == 0 {
 		f.formatParts = append(parts, &BytesFormatPart{bytes: bs})
-	} else {
-		var p FormatPart
-		lastPart := parts[count-1]
-		switch lp := lastPart.(type) {
-		case *ByteFormatPart: // won't reach here
-			p = &BytesFormatPart{
-				bytes: append([]byte{lp.byte}, bs...),
-			}
-		case *BytesFormatPart:
-			p = &BytesFormatPart{
-				bytes: append(lp.bytes, bs...),
-			}
-		default:
-			p = &BytesFormatPart{bytes: bs}
-			f.formatParts = append(parts, p)
-			return
-		}
-		f.formatParts[count-1] = p
+		return
 	}
+	// Note: the previous part can never be a *ByteFormatPart here because
+	// appendByte/appendBytes always merge consecutive literals into a
+	// BytesFormatPart whenever there is more than one byte.
+	if lp, ok := parts[count-1].(*BytesFormatPart); ok {
+		f.formatParts[count-1] = &BytesFormatPart{bytes: append(lp.bytes, bs...)}
+		return
+	}
+	f.formatParts = append(parts, &BytesFormatPart{bytes: bs})
 }
 
 // LevelFormatPart is a FormatPart of the level placeholder.

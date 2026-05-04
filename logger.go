@@ -3,6 +3,7 @@ package golog
 import (
 	"io"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -17,14 +18,30 @@ const (
 	ErrorLevel
 	CritLevel
 
-	disabledLevel Level = 255
+	disabledLevel Level = ^Level(0)
 )
 
 var (
 	levelNames = []byte("DIWEC")
 
 	internalLogger *Logger
+
+	recordPool = sync.Pool{
+		New: func() interface{} {
+			return &Record{}
+		},
+	}
 )
+
+// logError reports an internal error through the configured internalLogger, if any.
+// Errors raised inside the internalLogger itself are silently dropped to prevent
+// recursive logging loops.
+func logError(err error) {
+	if internalLogger != nil {
+		file, line := Caller(1)
+		internalLogger.Log(ErrorLevel, file, line, err.Error())
+	}
+}
 
 // A Record is an item which contains required context for the logger.
 type Record struct {
@@ -91,10 +108,12 @@ func (l *Logger) GetMinLevel() Level {
 func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interface{}) {
 	r := recordPool.Get().(*Record)
 	r.level = lv
-	if fastTimer.isRunning {
-		r.date = fastTimer.date
-		r.time = fastTimer.time
+	if snap := fastTimer.load(); snap != nil {
+		r.date = snap.date
+		r.time = snap.time
 	} else {
+		r.date = ""
+		r.time = ""
 		r.tm = now()
 	}
 	r.file = file

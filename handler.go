@@ -3,7 +3,16 @@ package golog
 import (
 	"bytes"
 	"io"
+	"sync"
 )
+
+const recordBufSize = 128
+
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, recordBufSize))
+	},
+}
 
 // A Handler is a leveled log handler with a formatter and several writers.
 type Handler struct {
