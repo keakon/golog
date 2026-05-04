@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## v0.3.0
 
 ### Fixed
 
@@ -12,6 +12,11 @@ All notable changes to this project will be documented in this file.
 - `StopFastTimer` now waits for any in-flight background update before returning, so
   stopping the timer cannot republish a cached snapshot after it has been cleared or
   race with an immediate restart.
+- `Formatter.appendBytes` now merges with a preceding `*ByteFormatPart` instead of
+  appending a separate `*BytesFormatPart`. Format strings of the form
+  `directive + single-character literal + unknown directive` (e.g. `"%lx%da"`)
+  reach this path, which earlier comments incorrectly claimed was unreachable.
+  Output is unchanged; the formatter just emits one fewer `Write` call per record.
 
 ### Changed
 
@@ -33,8 +38,7 @@ All notable changes to this project will be documented in this file.
 - `TimedRotatingFileWriter.schedule` collapses its previous two-phase loop with
   `updateLoop` / `flushLoop` labels into a single `select`, with the same observable
   behaviour (writers rate-limit notifications via `w.updated`).
-- `Formatter.findParts` is now iterative; the unreachable `*ByteFormatPart` branch
-  in `appendBytes` has been deleted.
+- `Formatter.findParts` is now iterative.
 - `log/log.go` `SetDefaultLogger`, `SetLogFunc`, and `SetLogfFunc` now dispatch
   through `[5]*func` indexed by `Level`, eliminating the previous nested switches.
 - `isTimedRotatingFile` rewritten as a single digit/suffix check; previous

@@ -174,6 +174,45 @@ func TestParseFormat(t *testing.T) {
 	}
 }
 
+// TestAppendBytesMergesPrecedingByteFormatPart guards against regressing the
+// merge of a *ByteFormatPart with a following appendBytes call. The format
+// "%lx%da" exercises this path: findParts emits LevelFormatPart, then
+// appendByte('x') (single-char literal prefix), then appendBytes("%d") for the
+// unknown directive 'd'. The expected result is a single BytesFormatPart
+// containing "x%da\n", not a ByteFormatPart followed by a separate
+// BytesFormatPart.
+func TestAppendBytesMergesPrecedingByteFormatPart(t *testing.T) {
+	formatter := ParseFormat("%lx%da")
+	if formatter == nil {
+		t.Fatal("ParseFormat returned nil")
+	}
+	if len(formatter.formatParts) != 2 {
+		var got []string
+		for _, p := range formatter.formatParts {
+			got = append(got, reflect.TypeOf(p).String())
+		}
+		t.Fatalf("expected 2 parts, got %d: %v", len(formatter.formatParts), got)
+	}
+	if _, ok := formatter.formatParts[0].(*LevelFormatPart); !ok {
+		t.Errorf("part0 is %s, expected *LevelFormatPart", reflect.TypeOf(formatter.formatParts[0]).String())
+	}
+	bp, ok := formatter.formatParts[1].(*BytesFormatPart)
+	if !ok {
+		t.Fatalf("part1 is %s, expected *BytesFormatPart", reflect.TypeOf(formatter.formatParts[1]).String())
+	}
+	if string(bp.bytes) != "x%da\n" {
+		t.Errorf("part1 bytes = %q, expected %q", string(bp.bytes), "x%da\n")
+	}
+
+	// Sanity check: the formatted output is unchanged.
+	r := &Record{level: InfoLevel}
+	buf := &bytes.Buffer{}
+	formatter.Format(r, buf)
+	if buf.String() != "Ix%da\n" {
+		t.Errorf("Format output = %q, expected %q", buf.String(), "Ix%da\n")
+	}
+}
+
 func TestByteFormatPart(t *testing.T) {
 	buf := &bytes.Buffer{}
 	part := ByteFormatPart{'a'}

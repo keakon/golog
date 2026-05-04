@@ -147,8 +147,14 @@ func (p *BytesFormatPart) Format(r *Record, buf *bytes.Buffer) {
 }
 
 // appendBytes appends a byte slice to the formatter.
-// If the previous FormatPart is a BytesFormatPart, the bytes are merged into it;
-// otherwise a new BytesFormatPart is created.
+// If the previous FormatPart is a ByteFormatPart or BytesFormatPart, the bytes
+// are merged into a single BytesFormatPart so consecutive literals are emitted
+// in one Write call; otherwise a new BytesFormatPart is created.
+//
+// The *ByteFormatPart branch is reachable in practice: a directive followed by a
+// single-character literal followed by an unknown directive (e.g. "%lx%da")
+// causes findParts to call appendByte (leaving a *ByteFormatPart at the tail)
+// then immediately appendBytes for the unknown directive's "%c" literal.
 func (f *Formatter) appendBytes(bs []byte) {
 	parts := f.formatParts
 	count := len(parts)
@@ -156,14 +162,17 @@ func (f *Formatter) appendBytes(bs []byte) {
 		f.formatParts = append(parts, &BytesFormatPart{bytes: bs})
 		return
 	}
-	// Note: the previous part can never be a *ByteFormatPart here because
-	// appendByte/appendBytes always merge consecutive literals into a
-	// BytesFormatPart whenever there is more than one byte.
-	if lp, ok := parts[count-1].(*BytesFormatPart); ok {
+	switch lp := parts[count-1].(type) {
+	case *ByteFormatPart:
+		merged := make([]byte, 0, 1+len(bs))
+		merged = append(merged, lp.byte)
+		merged = append(merged, bs...)
+		f.formatParts[count-1] = &BytesFormatPart{bytes: merged}
+	case *BytesFormatPart:
 		f.formatParts[count-1] = &BytesFormatPart{bytes: append(lp.bytes, bs...)}
-		return
+	default:
+		f.formatParts = append(parts, &BytesFormatPart{bytes: bs})
 	}
-	f.formatParts = append(parts, &BytesFormatPart{bytes: bs})
 }
 
 // LevelFormatPart is a FormatPart of the level placeholder.
