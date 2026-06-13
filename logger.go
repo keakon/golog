@@ -142,6 +142,10 @@ func (l *Logger) Log(lv Level, file string, line int, msg string, args ...interf
 		}
 	}
 
+	// Clear references before returning the record to the pool so a pooled
+	// record does not pin the previous message, file name or args in memory.
+	r.message = ""
+	r.file = ""
 	r.args = nil
 	recordPool.Put(r)
 }
