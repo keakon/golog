@@ -87,6 +87,46 @@ var (
 			defaultLogger.Log(golog.CritLevel, file, line, msg, args...)
 		},
 	}
+
+	// logFuncsNoCaller / logfFuncsNoCaller mirror the variants above but skip the
+	// Caller() stack walk. They are selected by SetDefaultLogger when the logger's
+	// format does not render the source location (no %s/%S), avoiding ~50% of the
+	// per-call cost on those formats.
+	logFuncsNoCaller = [5]func(args ...interface{}){
+		func(args ...interface{}) {
+			defaultLogger.Log(golog.DebugLevel, "", 0, "", args...)
+		},
+		func(args ...interface{}) {
+			defaultLogger.Log(golog.InfoLevel, "", 0, "", args...)
+		},
+		func(args ...interface{}) {
+			defaultLogger.Log(golog.WarnLevel, "", 0, "", args...)
+		},
+		func(args ...interface{}) {
+			defaultLogger.Log(golog.ErrorLevel, "", 0, "", args...)
+		},
+		func(args ...interface{}) {
+			defaultLogger.Log(golog.CritLevel, "", 0, "", args...)
+		},
+	}
+
+	logfFuncsNoCaller = [5]func(msg string, args ...interface{}){
+		func(msg string, args ...interface{}) {
+			defaultLogger.Log(golog.DebugLevel, "", 0, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			defaultLogger.Log(golog.InfoLevel, "", 0, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			defaultLogger.Log(golog.WarnLevel, "", 0, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			defaultLogger.Log(golog.ErrorLevel, "", 0, msg, args...)
+		},
+		func(msg string, args ...interface{}) {
+			defaultLogger.Log(golog.CritLevel, "", 0, msg, args...)
+		},
+	}
 )
 
 // SetLogFunc sets the log function with the specified level for the defaultLogger.
@@ -118,13 +158,17 @@ func SetDefaultLogger(l *golog.Logger) {
 		return
 	}
 	minLevel := l.GetMinLevel()
+	needsCaller := l.NeedsCaller()
 	for level := golog.DebugLevel; level <= golog.CritLevel; level++ {
 		if level < minLevel {
 			*logVars[level] = nop
 			*logfVars[level] = nopf
-		} else {
+		} else if needsCaller {
 			*logVars[level] = logFuncs[level]
 			*logfVars[level] = logfFuncs[level]
+		} else {
+			*logVars[level] = logFuncsNoCaller[level]
+			*logfVars[level] = logfFuncsNoCaller[level]
 		}
 	}
 }

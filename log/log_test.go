@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/keakon/golog"
@@ -257,6 +258,58 @@ func TestLogFuncs(t *testing.T) {
 	l.Close()
 }
 
+// TestLogFuncsNoSource exercises the no-caller dispatch path: when the default
+// logger's formatters never render the source, SetDefaultLogger installs the
+// *NoCaller package functions, which must still log correctly without a source
+// token.
+func TestLogFuncsNoSource(t *testing.T) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	w := &memoryWriter{}
+	h := golog.NewHandler(golog.InfoLevel, golog.ParseFormat("[%l %D %T] %m"))
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	if l.NeedsCaller() {
+		t.Fatal("no-source logger should not need the caller")
+	}
+
+	// Below the min level: nothing is written.
+	Debug("test")
+	Debugf("test")
+	if w.Buffer.Len() != 0 {
+		t.Error("memoryWriter is not empty for sub-level logs")
+		w.Buffer.Reset()
+	}
+
+	check := func(name string, fn func()) {
+		w.Buffer.Reset()
+		fn()
+		out := w.Buffer.String()
+		if len(out) == 0 {
+			t.Errorf("%s wrote nothing", name)
+			return
+		}
+		if strings.Contains(out, "log_test:") {
+			t.Errorf("%s output should have no source token: %q", name, out)
+		}
+	}
+
+	check("Info", func() { Info("test") })
+	check("Infof", func() { Infof("test") })
+	check("Warn", func() { Warn("test") })
+	check("Warnf", func() { Warnf("test") })
+	check("Error", func() { Error("test") })
+	check("Errorf", func() { Errorf("test") })
+	check("Crit", func() { Crit("test") })
+	check("Critf", func() { Critf("test") })
+
+	l.Close()
+}
+
 func TestIsEnabledFor(t *testing.T) {
 	SetDefaultLogger(nil)
 	if IsEnabledFor(golog.DebugLevel) {
@@ -308,6 +361,28 @@ func BenchmarkDiscardLogger(b *testing.B) {
 
 	w := golog.NewDiscardWriter()
 	h := golog.NewHandler(golog.InfoLevel, golog.DefaultFormatter)
+	h.AddWriter(w)
+	l := golog.NewLogger(golog.InfoLevel)
+	l.AddHandler(h)
+	SetDefaultLogger(l)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		Infof("test")
+	}
+	l.Close()
+}
+
+// BenchmarkDiscardLoggerNoSource uses a format without %s/%S, so the logger
+// skips the Caller() stack walk. Compare against BenchmarkDiscardLogger to see
+// the cost of resolving the source location.
+func BenchmarkDiscardLoggerNoSource(b *testing.B) {
+	golog.StartFastTimer()
+	defer golog.StopFastTimer()
+
+	w := golog.NewDiscardWriter()
+	h := golog.NewHandler(golog.InfoLevel, golog.ParseFormat("[%l %D %T] %m"))
 	h.AddWriter(w)
 	l := golog.NewLogger(golog.InfoLevel)
 	l.AddHandler(h)
