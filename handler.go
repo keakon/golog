@@ -8,6 +8,12 @@ import (
 
 const recordBufSize = 128
 
+// maxPooledBufSize bounds the capacity of buffers returned to bufPool. A single
+// oversized record (e.g. a megabyte-long message) would otherwise grow a pooled
+// buffer and keep that capacity alive for the lifetime of the process. Buffers
+// larger than this are dropped instead of pooled so they can be reclaimed by GC.
+const maxPooledBufSize = 64 * 1024
+
 var bufPool = sync.Pool{
 	New: func() interface{} {
 		return bytes.NewBuffer(make([]byte, 0, recordBufSize))
@@ -57,7 +63,9 @@ func (h *Handler) Handle(r *Record) bool {
 				logError(err)
 			}
 		}
-		bufPool.Put(buf)
+		if buf.Cap() <= maxPooledBufSize {
+			bufPool.Put(buf)
+		}
 		return true
 	}
 	return false

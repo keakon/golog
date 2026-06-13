@@ -18,6 +18,16 @@ var (
 // A Formatter containing a sequence of FormatParts.
 type Formatter struct {
 	formatParts []FormatPart
+	// needsCaller reports whether the format contains a source directive (%s or %S),
+	// i.e. whether the caller's file and line are actually rendered. Loggers use it
+	// to skip the relatively expensive Caller() stack walk when no handler needs it.
+	needsCaller bool
+}
+
+// NeedsCaller reports whether the formatter renders the source file/line,
+// i.e. whether its format string contains a %s or %S directive.
+func (f *Formatter) NeedsCaller() bool {
+	return f.needsCaller
 }
 
 // ParseFormat parses a format string into a formatter.
@@ -81,8 +91,10 @@ func (f *Formatter) findParts(format []byte) {
 			f.formatParts = append(f.formatParts, &DateFormatPart{})
 		case 's':
 			f.formatParts = append(f.formatParts, &SourceFormatPart{})
+			f.needsCaller = true
 		case 'S':
 			f.formatParts = append(f.formatParts, &FullSourceFormatPart{})
+			f.needsCaller = true
 		case 'm':
 			f.formatParts = append(f.formatParts, &MessageFormatPart{})
 		default:
@@ -236,7 +248,9 @@ func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 				if os.IsPathSeparator(c) {
 					start = i + 1
 					break
-				} else if c == '.' {
+				} else if c == '.' && end == length {
+					// Strip only the final extension: keep dots earlier in the
+					// base name (e.g. "my.module.go" -> "my.module").
 					end = i
 				}
 			}

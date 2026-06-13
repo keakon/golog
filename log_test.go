@@ -243,6 +243,70 @@ func TestCloseLogger(t *testing.T) {
 	l.Close()
 }
 
+func TestNeedsCaller(t *testing.T) {
+	// Formatter level: only %s and %S require the caller.
+	if !DefaultFormatter.NeedsCaller() {
+		t.Error("DefaultFormatter should need the caller")
+	}
+	if !ParseFormat("[%l %S] %m").NeedsCaller() {
+		t.Error("a full-source format should need the caller")
+	}
+	if ParseFormat("[%l %D %T] %m").NeedsCaller() {
+		t.Error("a format without a source directive should not need the caller")
+	}
+
+	// Logger level: needsCaller is the OR over its handlers' formatters.
+	noSource := NewLogger(InfoLevel)
+	noSource.AddHandler(NewHandler(InfoLevel, ParseFormat("[%l %D %T] %m")))
+	if noSource.NeedsCaller() {
+		t.Error("logger with only a no-source handler should not need the caller")
+	}
+	// Adding a source handler flips it on and it stays on.
+	noSource.AddHandler(NewHandler(InfoLevel, DefaultFormatter))
+	if !noSource.NeedsCaller() {
+		t.Error("logger with a source handler should need the caller")
+	}
+
+	// A nil formatter is treated conservatively as needing the caller.
+	nilFmt := NewLogger(InfoLevel)
+	nilFmt.AddHandler(&Handler{level: InfoLevel})
+	if !nilFmt.NeedsCaller() {
+		t.Error("logger with a nil-formatter handler should need the caller")
+	}
+
+	// Functionally, a no-source logger still logs the message correctly; the
+	// source token is simply absent.
+	path := filepath.Join(os.TempDir(), "test_needscaller.log")
+	os.Remove(path)
+	w, err := NewFileWriter(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := NewHandler(InfoLevel, ParseFormat("[%l %D %T] %m"))
+	h.AddWriter(w)
+	l := NewLogger(InfoLevel)
+	l.AddHandler(h)
+	l.Infof("test")
+	l.Close()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Fields(string(content))
+	// "[I", date, time, "test" -> 4 fields, no "file:line".
+	if len(parts) != 4 {
+		t.Errorf("parts length are %d: %q", len(parts), string(content))
+	}
+	if parts[len(parts)-1] != "test" {
+		t.Errorf("last field is %q", parts[len(parts)-1])
+	}
+	if strings.Contains(string(content), "log_test:") {
+		t.Errorf("no-source format should not contain a source token: %q", string(content))
+	}
+	os.Remove(path)
+}
+
 func TestNewStdoutLogger(t *testing.T) {
 	l := NewStdoutLogger()
 	if l.IsEnabledFor(DebugLevel) {

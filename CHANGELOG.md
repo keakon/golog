@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- `%s` source formatting now strips only the final extension. A base name with
+  earlier dots such as `my.module.go` rendered as `my`; it now renders as
+  `my.module`. Names without an extension are kept verbatim.
+
+### Changed
+
+- The logging methods now skip the `Caller()` stack walk when no handler's
+  formatter renders the source location (no `%s`/`%S` directive). `Caller()` is
+  the dominant cost of a discarded log call, so source-less formats drop from
+  ~201 ns/op to ~59 ns/op (`BenchmarkDiscardLogger` vs the new
+  `BenchmarkDiscardLoggerNoSource`, linux/amd64, Go 1.24). Formats that render
+  the source — including `DefaultFormatter` — are unchanged.
+- Buffers whose capacity exceeds 64 KiB are no longer returned to `bufPool`, so a
+  single oversized record can no longer pin that capacity for the process
+  lifetime; normal-sized buffers are still pooled.
+- `Record.message` and `Record.file` are now cleared before the record is
+  returned to `recordPool` (extending the existing `r.args = nil`), so a pooled
+  record no longer pins the previous message or file name in memory.
+- The `uintBytes2` / `uintBytes4` / `uintBytes` digit tables now point into three
+  contiguous backing arrays instead of ~1200 individually heap-allocated slices,
+  improving cache locality and reducing the number of GC-scanned objects. The
+  rendered bytes are identical.
+
+### Added
+
+- `Formatter.NeedsCaller()` and `Logger.NeedsCaller()` report whether the source
+  location is rendered (i.e. whether `Caller()` is needed).
+- `BenchmarkDiscardLoggerNoSource` measures the logging hot path on a format
+  without a source directive, as a control for `BenchmarkDiscardLogger`.
+- CI gained a `lint` job that runs `gofmt`, `go vet`, and `staticcheck`.
+
 ## v0.3.0
 
 ### Fixed

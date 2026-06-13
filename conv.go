@@ -2,28 +2,76 @@ package golog
 
 import "bytes"
 
-var (
-	// uintBytes2 caches 2-digit decimal forms of values 0..59 (hour/minute/second components).
-	uintBytes2 [60][]byte
-	// uintBytes4 caches 4-digit decimal forms of years 1970..2099 (covers all reasonable
-	// log timestamps; queries outside this range fall back to uint2Bytes).
-	uintBytes4 [130][]byte
-	// uintBytes caches decimal forms of values 0..1000, indexed directly by value.
-	// Covers virtually all source line numbers in real code.
-	uintBytes [1001][]byte
+const (
+	uintBytes2Count = 60   // 0..59 (hour/minute/second components)
+	uintBytes4Count = 130  // years uintBytes4Base..uintBytes4Base+129
+	uintBytesCount  = 1001 // 0..1000 (covers virtually all source line numbers)
+	uintBytes4Base  = 1970
+
+	// uintBytesBackingSize is the total width of the minimal-width decimal forms
+	// of 0..1000: 10*1 + 90*2 + 900*3 + 1*4 = 2894 bytes.
+	uintBytesBackingSize = 10*1 + 90*2 + 900*3 + 1*4
 )
 
-const uintBytes4Base = 1970
+var (
+	// uintBytes2 caches 2-digit decimal forms of values 0..59 (hour/minute/second components).
+	uintBytes2 [uintBytes2Count][]byte
+	// uintBytes4 caches 4-digit decimal forms of years 1970..2099 (covers all reasonable
+	// log timestamps; queries outside this range fall back to uint2Bytes).
+	uintBytes4 [uintBytes4Count][]byte
+	// uintBytes caches decimal forms of values 0..1000, indexed directly by value.
+	// Covers virtually all source line numbers in real code.
+	uintBytes [uintBytesCount][]byte
+
+	// The lookup tables above point into these contiguous backing arrays instead
+	// of one heap allocation per entry. Packing the digits together improves cache
+	// locality and removes ~1200 separately GC-scanned slices.
+	uintBytes2Backing [uintBytes2Count * 2]byte
+	uintBytes4Backing [uintBytes4Count * 4]byte
+	uintBytesBacking  [uintBytesBackingSize]byte
+)
 
 func init() {
-	for i := 0; i < len(uintBytes2); i++ {
-		uintBytes2[i] = uint2Bytes(i, 2)
+	for i := 0; i < uintBytes2Count; i++ {
+		b := uintBytes2Backing[i*2 : i*2+2 : i*2+2]
+		writeFixedUint(b, i)
+		uintBytes2[i] = b
 	}
-	for i := 0; i < len(uintBytes4); i++ {
-		uintBytes4[i] = uint2Bytes(uintBytes4Base+i, 4)
+	for i := 0; i < uintBytes4Count; i++ {
+		b := uintBytes4Backing[i*4 : i*4+4 : i*4+4]
+		writeFixedUint(b, uintBytes4Base+i)
+		uintBytes4[i] = b
 	}
-	for i := 0; i < len(uintBytes); i++ {
-		uintBytes[i] = uint2DynamicBytes(i)
+	offset := 0
+	for i := 0; i < uintBytesCount; i++ {
+		w := decimalWidth(i)
+		b := uintBytesBacking[offset : offset+w : offset+w]
+		writeFixedUint(b, i)
+		uintBytes[i] = b
+		offset += w
+	}
+}
+
+// writeFixedUint writes the decimal digits of x right-aligned into b, where
+// len(b) is the fixed width. Caller must ensure len(b) is large enough to hold x.
+func writeFixedUint(b []byte, x int) {
+	for i := len(b) - 1; i >= 0; i-- {
+		b[i] = byte(x%10) + '0'
+		x /= 10
+	}
+}
+
+// decimalWidth returns the number of decimal digits of x for 0 <= x <= 1000.
+func decimalWidth(x int) int {
+	switch {
+	case x < 10:
+		return 1
+	case x < 100:
+		return 2
+	case x < 1000:
+		return 3
+	default:
+		return 4
 	}
 }
 
@@ -31,45 +79,7 @@ func init() {
 // Caller must ensure size is large enough to hold x.
 func uint2Bytes(x, size int) []byte {
 	result := make([]byte, size)
-	for i := 0; i < size; i++ {
-		result[size-i-1] = byte(x%10) + '0'
-		x /= 10
-	}
-	return result
-}
-
-// uint2DynamicBytes encodes a non-negative integer as a minimal-width decimal byte slice.
-// Used only at init time to populate uintBytes; runtime hot paths should use writeUintToBuf.
-func uint2DynamicBytes(x int) []byte {
-	if x < 10 {
-		return []byte{byte(x) + '0'}
-	}
-	var size int
-	switch {
-	case x < 100:
-		size = 2
-	case x < 1000:
-		size = 3
-	case x < 10000:
-		size = 4
-	case x < 100000:
-		size = 5
-	case x < 1000000:
-		size = 6
-	case x < 10000000:
-		size = 7
-	case x < 100000000:
-		size = 8
-	case x < 1000000000:
-		size = 9
-	default:
-		size = 10
-	}
-	result := make([]byte, size)
-	for i := 0; i < size; i++ {
-		result[size-i-1] = byte(x%10) + '0'
-		x /= 10
-	}
+	writeFixedUint(result, x)
 	return result
 }
 
