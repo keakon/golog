@@ -9,6 +9,35 @@ on:
       - '*.md'
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.26'
+
+    - name: gofmt
+      run: |
+        files=$(gofmt -l .)
+        if [ -n "$files" ]; then
+          echo "These files are not gofmt-formatted:"
+          echo "$files"
+          exit 1
+        fi
+
+    - name: go vet
+      run: go vet ./...
+
+    - name: staticcheck
+      run: |
+        go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+        staticcheck ./...
+
   test:
     strategy:
       fail-fast: true
