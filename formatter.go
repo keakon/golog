@@ -248,7 +248,9 @@ func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
 				if os.IsPathSeparator(c) {
 					start = i + 1
 					break
-				} else if c == '.' {
+				} else if c == '.' && end == length {
+					// Strip only the final extension: keep dots earlier in the
+					// base name (e.g. "my.module.go" -> "my.module").
 					end = i
 				}
 			}

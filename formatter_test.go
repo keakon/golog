@@ -315,6 +315,25 @@ func TestSourceFormatPart(t *testing.T) {
 	if bs != "test:10" {
 		t.Error()
 	}
+
+	// Only the final extension is stripped; dots earlier in the base name are kept.
+	r.file = "/test/my.module.go"
+	buf.Reset()
+	part.Format(r, buf)
+	bs = buf.String()
+	if bs != "my.module:10" {
+		t.Errorf("result is " + bs)
+	}
+
+	// A base name without an extension is kept verbatim, even when a parent
+	// directory contains a dot.
+	r.file = "/a.b/file"
+	buf.Reset()
+	part.Format(r, buf)
+	bs = buf.String()
+	if bs != "file:10" {
+		t.Errorf("result is " + bs)
+	}
 }
 
 func TestFullSourceFormatPart(t *testing.T) {
