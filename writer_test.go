@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,9 +17,11 @@ import (
 const maxRetryCount = 10
 
 func checkFileSize(t *testing.T, path string, size int64) {
+	t.Helper()
+
 	stat, err := os.Stat(path)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if stat.Size() != size {
@@ -27,13 +30,15 @@ func checkFileSize(t *testing.T, path string, size int64) {
 }
 
 func checkFileSizeN(t *testing.T, path string, size int64) {
+	t.Helper()
+
 	for i := 0; i < maxRetryCount; i++ {
 		time.Sleep(flushDuration)
 
 		stat, err := os.Stat(path)
 		if err != nil {
 			if i == maxRetryCount-1 {
-				t.Error(err)
+				t.Fatal(err)
 			} else {
 				continue
 			}
@@ -85,8 +90,7 @@ func TestDiscardWriterCloseIdempotent(t *testing.T) {
 func TestBufferedFileWriter(t *testing.T) {
 	const bufferSize = 1024
 
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
+	path := filepath.Join(t.TempDir(), "test.log")
 	w, err := NewBufferedFileWriter(path, BufferSize(bufferSize))
 	if err != nil {
 		t.Error(err)
@@ -190,18 +194,10 @@ func TestBufferedFileWriter(t *testing.T) {
 }
 
 func TestRotatingFileWriter(t *testing.T) {
-	dir := filepath.Join(os.TempDir(), "test")
+	dir := t.TempDir()
 	path := filepath.Join(dir, "test.log")
-	err := os.RemoveAll(dir)
-	if err != nil {
-		t.Error(err)
-	}
-	err = os.Mkdir(dir, 0755)
-	if err != nil {
-		t.Error(err)
-	}
 
-	_, err = NewRotatingFileWriter(path, 0, 2)
+	_, err := NewRotatingFileWriter(path, 0, 2)
 	if err == nil {
 		t.Errorf("NewRotatingFileWriter with maxSize 0 is invalid")
 	}
@@ -276,16 +272,8 @@ func TestRotatingFileWriter(t *testing.T) {
 }
 
 func TestTimedRotatingFileWriterByDate(t *testing.T) {
-	dir := filepath.Join(os.TempDir(), "test")
+	dir := t.TempDir()
 	pathPrefix := filepath.Join(dir, "test")
-	err := os.RemoveAll(dir)
-	if err != nil {
-		t.Error(err)
-	}
-	err = os.Mkdir(dir, 0755)
-	if err != nil {
-		t.Error(err)
-	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
 	var lock sync.RWMutex
@@ -306,7 +294,7 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 		return flushDuration * 3
 	}
 
-	_, err = NewTimedRotatingFileWriter(pathPrefix, RotateByDate, 0)
+	_, err := NewTimedRotatingFileWriter(pathPrefix, RotateByDate, 0)
 	if err == nil {
 		t.Errorf("NewTimedRotatingFileWriter with backupCount 0 is invalid")
 	}
@@ -358,16 +346,8 @@ func TestTimedRotatingFileWriterByDate(t *testing.T) {
 }
 
 func TestTimedRotatingFileWriterByHour(t *testing.T) {
-	dir := filepath.Join(os.TempDir(), "test")
+	dir := t.TempDir()
 	pathPrefix := filepath.Join(dir, "test")
-	err := os.RemoveAll(dir)
-	if err != nil {
-		t.Error(err)
-	}
-	err = os.Mkdir(dir, 0755)
-	if err != nil {
-		t.Error(err)
-	}
 
 	tm := time.Date(2018, 11, 19, 16, 12, 34, 56, time.Local)
 	var lock sync.RWMutex
@@ -436,8 +416,7 @@ func (w *badWriter) Close() error {
 }
 
 func TestBadWriter(t *testing.T) {
-	path := filepath.Join(os.TempDir(), "error.log")
-	os.Remove(path)
+	path := filepath.Join(t.TempDir(), "error.log")
 	w, err := NewBufferedFileWriter(path)
 	if err != nil {
 		t.Error(err)
@@ -471,14 +450,8 @@ func TestBadWriter(t *testing.T) {
 }
 
 func TestTimedRotatingFileWriterPurgeKeepsUnrelatedFiles(t *testing.T) {
-	dir := filepath.Join(os.TempDir(), "test-purge")
+	dir := t.TempDir()
 	pathPrefix := filepath.Join(dir, "test")
-	if err := os.RemoveAll(dir); err != nil {
-		t.Error(err)
-	}
-	if err := os.Mkdir(dir, 0755); err != nil {
-		t.Error(err)
-	}
 
 	files := []string{
 		pathPrefix + "-20181119.log",
@@ -510,14 +483,8 @@ func TestTimedRotatingFileWriterPurgeKeepsUnrelatedFiles(t *testing.T) {
 }
 
 func TestTimedRotatingFileWriterPurgeKeepsUnrelatedHourlyFiles(t *testing.T) {
-	dir := filepath.Join(os.TempDir(), "test-purge-hour")
+	dir := t.TempDir()
 	pathPrefix := filepath.Join(dir, "test")
-	if err := os.RemoveAll(dir); err != nil {
-		t.Error(err)
-	}
-	if err := os.Mkdir(dir, 0755); err != nil {
-		t.Error(err)
-	}
 
 	files := []string{
 		pathPrefix + "-2018111916.log",
@@ -559,8 +526,7 @@ func TestNextRotateDuration(t *testing.T) {
 }
 
 func TestConcurrentFileWriter(t *testing.T) {
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
+	path := filepath.Join(t.TempDir(), "test.log")
 	w, err := NewConcurrentFileWriter(path, BufferSize(1024*1024))
 	if err != nil {
 		t.Error(err)
@@ -675,5 +641,118 @@ func TestConcurrentFileWriter(t *testing.T) {
 	}
 	if _, err := w.Write([]byte("closed")); !errors.Is(err, os.ErrClosed) {
 		t.Errorf("Write() after Close() error is %v, expected %v", err, os.ErrClosed)
+	}
+}
+
+func TestConcurrentFileWriterLazyBuffersAndCloseRelease(t *testing.T) {
+	w, err := NewConcurrentFileWriter(filepath.Join(t.TempDir(), "test.log"), BufferSize(1024))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.cpuCount != runtime.GOMAXPROCS(0) {
+		t.Fatalf("shard count is %d, expected GOMAXPROCS %d", w.cpuCount, runtime.GOMAXPROCS(0))
+	}
+	// A 1 KiB buffer split across shards floors at minShardBufferSize.
+	if w.shardBufferSize != minShardBufferSize {
+		t.Fatalf("shard buffer size is %d, expected floor %d", w.shardBufferSize, minShardBufferSize)
+	}
+	for i, buffer := range w.buffers {
+		if buffer != nil {
+			t.Fatalf("buffer %d was allocated before first write", i)
+		}
+	}
+
+	if _, err := w.Write([]byte("test")); err != nil {
+		t.Fatal(err)
+	}
+	allocated := 0
+	for _, buffer := range w.buffers {
+		if buffer != nil {
+			allocated++
+		}
+	}
+	if allocated == 0 {
+		t.Fatal("no shard buffer was allocated after Write")
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if w.buffers != nil {
+		t.Fatal("Close should release shard buffers")
+	}
+	if w.buffer != nil {
+		t.Fatal("Close should release the aggregate buffer")
+	}
+}
+
+func TestConcurrentFileWriterGOMAXPROCSIncrease(t *testing.T) {
+	old := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(old)
+
+	path := filepath.Join(t.TempDir(), "test.log")
+	w, err := NewConcurrentFileWriter(path, BufferSize(1024))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.cpuCount != 1 {
+		t.Fatalf("writer should be created with one shard, got %d", w.cpuCount)
+	}
+
+	newMax := old
+	if newMax < 4 {
+		newMax = 4
+	}
+	runtime.GOMAXPROCS(newMax)
+
+	const goroutines = 32
+	const writes = 100
+	data := []byte("test\n")
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j < writes; j++ {
+				if _, err := w.Write(data); err != nil {
+					t.Errorf("Write failed: %v", err)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	stat, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedSize := int64(goroutines * writes * len(data))
+	if stat.Size() != expectedSize {
+		t.Fatalf("file size is %d, expected %d", stat.Size(), expectedSize)
+	}
+}
+
+func TestConcurrentFileWriterShardBufferScaling(t *testing.T) {
+	old := runtime.GOMAXPROCS(4)
+	defer runtime.GOMAXPROCS(old)
+
+	const bufferSize = 1024 * 1024
+	w, err := NewConcurrentFileWriter(filepath.Join(t.TempDir(), "test.log"), BufferSize(bufferSize))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	if w.cpuCount != 4 {
+		t.Fatalf("shard count is %d, expected 4", w.cpuCount)
+	}
+	// The buffer budget is split across shards, so the total preallocated memory
+	// stays ~bufferSize regardless of core count instead of bufferSize per shard.
+	if want := uint32(bufferSize) / 4; w.shardBufferSize != want {
+		t.Fatalf("shard buffer size is %d, expected %d", w.shardBufferSize, want)
 	}
 }

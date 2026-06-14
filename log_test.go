@@ -12,10 +12,9 @@ func TestLogger(t *testing.T) {
 	fastTimer.start()
 	defer fastTimer.stop()
 
-	infoPath := filepath.Join(os.TempDir(), "test_info.log")
-	debugPath := filepath.Join(os.TempDir(), "test_debug.log")
-	os.Remove(infoPath)
-	os.Remove(debugPath)
+	dir := t.TempDir()
+	infoPath := filepath.Join(dir, "test_info.log")
+	debugPath := filepath.Join(dir, "test_debug.log")
 
 	infoWriter, err := NewFileWriter(infoPath)
 	if err != nil {
@@ -276,8 +275,7 @@ func TestNeedsCaller(t *testing.T) {
 
 	// Functionally, a no-source logger still logs the message correctly; the
 	// source token is simply absent.
-	path := filepath.Join(os.TempDir(), "test_needscaller.log")
-	os.Remove(path)
+	path := filepath.Join(t.TempDir(), "test_needscaller.log")
 	w, err := NewFileWriter(path)
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +302,6 @@ func TestNeedsCaller(t *testing.T) {
 	if strings.Contains(string(content), "log_test:") {
 		t.Errorf("no-source format should not contain a source token: %q", string(content))
 	}
-	os.Remove(path)
 }
 
 func TestNewStdoutLogger(t *testing.T) {

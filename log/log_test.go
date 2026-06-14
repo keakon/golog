@@ -3,7 +3,6 @@ package log
 import (
 	"bytes"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -605,8 +604,7 @@ func BenchmarkBufferedFileLogger(b *testing.B) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()
 
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
+	path := filepath.Join(b.TempDir(), "test.log")
 	w, err := golog.NewBufferedFileWriter(path)
 	if err != nil {
 		b.Error(err)
@@ -629,8 +627,7 @@ func BenchmarkBufferedFileLoggerParallel(b *testing.B) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()
 
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
+	path := filepath.Join(b.TempDir(), "test.log")
 	w, err := golog.NewBufferedFileWriter(path)
 	if err != nil {
 		b.Error(err)
@@ -655,8 +652,7 @@ func BenchmarkConcurrentFileLogger(b *testing.B) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()
 
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
+	path := filepath.Join(b.TempDir(), "test.log")
 	w, err := golog.NewConcurrentFileWriter(path, golog.BufferSize(1024*1024*8))
 	if err != nil {
 		b.Error(err)
@@ -679,8 +675,7 @@ func BenchmarkConcurrentFileLoggerParallel(b *testing.B) {
 	golog.StartFastTimer()
 	defer golog.StopFastTimer()
 
-	path := filepath.Join(os.TempDir(), "test.log")
-	os.Remove(path)
+	path := filepath.Join(b.TempDir(), "test.log")
 	w, err := golog.NewConcurrentFileWriter(path, golog.BufferSize(1024*1024*8))
 	if err != nil {
 		b.Error(err)
