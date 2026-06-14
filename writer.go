@@ -19,6 +19,12 @@ import (
 
 const (
 	defaultBufferSize = 1024 * 1024 * 4
+	// minShardBufferSize is the floor for a ConcurrentFileWriter's per-shard
+	// buffer capacity. Each shard preallocates bufferSize/cpuCount so the total
+	// reserved across all shards stays ~bufferSize regardless of core count, but
+	// it never drops below this floor (which also bounds how often a hot shard's
+	// bytes.Buffer has to grow within a flush interval).
+	minShardBufferSize = 4 * 1024
 
 	fileFlag      = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 	fileMode      = 0644
@@ -569,14 +575,15 @@ var nextRotateDuration = func(rotateDuration RotateDuration) time.Duration {
 
 type ConcurrentFileWriter struct {
 	bufferedFileWriter
-	cpuCount    int
-	locks       []sync.Mutex
-	buffers     []*bytes.Buffer
-	stopChan    chan struct{}
-	stoppedChan chan struct{}
-	closeOnce   sync.Once
-	closeErr    error
-	closed      atomic.Bool
+	cpuCount        int
+	shardBufferSize uint32
+	locks           []sync.Mutex
+	buffers         []*bytes.Buffer
+	stopChan        chan struct{}
+	stoppedChan     chan struct{}
+	closeOnce       sync.Once
+	closeErr        error
+	closed          atomic.Bool
 }
 
 // NewConcurrentFileWriter creates a new ConcurrentFileWriter.
@@ -586,6 +593,11 @@ func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (
 		return nil, err
 	}
 
+	// One shard per P. The slices are sized to the GOMAXPROCS value seen here;
+	// runtime_procPin may later return an id outside this range if GOMAXPROCS
+	// grows, so Write maps the P id back in with a modulo. Shard buffers are
+	// allocated lazily on first write (see Write), so an unused shard costs
+	// nothing.
 	cpuCount := runtime.GOMAXPROCS(0)
 
 	w := &ConcurrentFileWriter{
@@ -604,10 +616,16 @@ func NewConcurrentFileWriter(path string, options ...BufferedFileWriterOption) (
 		option(&w.bufferedFileWriter)
 	}
 
-	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
-	for i := 0; i < cpuCount; i++ {
-		w.buffers[i] = bytes.NewBuffer(make([]byte, 0, w.bufferSize))
+	// Split the buffer budget across shards so the total preallocated memory
+	// stays ~bufferSize no matter how many cores the machine has, instead of one
+	// full bufferSize buffer per shard. The aggregate w.buffer below keeps the
+	// full bufferSize.
+	w.shardBufferSize = w.bufferSize / uint32(cpuCount)
+	if w.shardBufferSize < minShardBufferSize {
+		w.shardBufferSize = minShardBufferSize
 	}
+
+	w.buffer = bufio.NewWriterSize(f, int(w.bufferSize))
 
 	go w.schedule()
 	return w, nil
@@ -621,7 +639,7 @@ func (w *ConcurrentFileWriter) schedule() {
 			for shard := 0; shard < w.cpuCount; shard++ {
 				w.locks[shard].Lock()
 				buffer := w.buffers[shard]
-				if buffer.Len() > 0 {
+				if buffer != nil && buffer.Len() > 0 {
 					w.buffer.Write(buffer.Bytes())
 					buffer.Reset()
 				}
@@ -650,8 +668,9 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 		return 0, os.ErrClosed
 	}
 
-	shard := runtime_procPin()
+	proc := runtime_procPin()
 	runtime_procUnpin() // can't hold the lock for long
+	shard := proc % w.cpuCount
 
 	w.locks[shard].Lock()
 	defer w.locks[shard].Unlock()
@@ -659,7 +678,12 @@ func (w *ConcurrentFileWriter) Write(p []byte) (n int, err error) {
 	if w.closed.Load() {
 		return 0, os.ErrClosed
 	}
-	return w.buffers[shard].Write(p)
+	buffer := w.buffers[shard]
+	if buffer == nil {
+		buffer = bytes.NewBuffer(make([]byte, 0, w.shardBufferSize))
+		w.buffers[shard] = buffer
+	}
+	return buffer.Write(p)
 }
 
 // Close flushes the buffer, then closes the file writer.
@@ -672,10 +696,11 @@ func (w *ConcurrentFileWriter) Close() error {
 		for shard := 0; shard < w.cpuCount; shard++ {
 			w.locks[shard].Lock()
 			buffer := w.buffers[shard]
-			if buffer.Len() > 0 {
+			if buffer != nil && buffer.Len() > 0 {
 				w.buffer.Write(buffer.Bytes())
 				buffer.Reset()
 			}
+			w.buffers[shard] = nil
 			w.locks[shard].Unlock()
 		}
 
@@ -691,6 +716,8 @@ func (w *ConcurrentFileWriter) Close() error {
 			}
 		}
 		w.file = nil
+		w.buffer = nil
+		w.buffers = nil
 	})
 	return w.closeErr
 }

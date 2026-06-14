@@ -631,6 +631,10 @@ func TestConcurrentFileWriter(t *testing.T) {
 	}
 	wg.Wait()
 
+	if err := w.Close(); err != nil {
+		t.Error(err)
+	}
+
 	for i := 0; i < maxRetryCount; i++ {
 		time.Sleep(flushDuration)
 		n, err = f.Read(buf)
@@ -645,12 +649,12 @@ func TestConcurrentFileWriter(t *testing.T) {
 		}
 	}
 	if n != count*dataSize*writeCount {
-		t.Errorf("read %d bytes, expected %d bytes", n, count*dataSize*writeCount)
+		t.Fatalf("read %d bytes, expected %d bytes", n, count*dataSize*writeCount)
 	}
 
 	lines := bytes.Split(buf[:n], []byte{'\n'})
 	if len(lines) != count*writeCount+1 {
-		t.Errorf("read %d lines, expected %d lines", len(lines), count*writeCount+1)
+		t.Fatalf("read %d lines, expected %d lines", len(lines), count*writeCount+1)
 	}
 	if len(lines[count*writeCount]) != 0 {
 		t.Error("last part is not empty")
