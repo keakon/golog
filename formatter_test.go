@@ -213,6 +213,54 @@ func TestAppendBytesMergesPrecedingByteFormatPart(t *testing.T) {
 	}
 }
 
+func TestFormatterFastPathsMatchFormatParts(t *testing.T) {
+	formats := []string{
+		defaultFormat,
+		timedRotatingFormat,
+		noSourceFormat,
+	}
+	records := []*Record{
+		{
+			level:   InfoLevel,
+			date:    "2026-06-14",
+			time:    "16:12:34",
+			file:    "/tmp/my.module.go",
+			line:    123,
+			message: "hello",
+		},
+		{
+			level:   Level(99),
+			tm:      time.Date(2039, 1, 2, 3, 4, 5, 0, time.Local),
+			file:    "/tmp/noext",
+			line:    1001,
+			message: "count=%d name=%s",
+			args:    []interface{}{7, "test"},
+		},
+	}
+
+	for _, format := range formats {
+		formatter := ParseFormat(format)
+		if formatter == nil {
+			t.Fatalf("ParseFormat(%q) returned nil", format)
+		}
+		if formatter.fastPath == formatFastPathNone {
+			t.Fatalf("ParseFormat(%q) did not select a fast path", format)
+		}
+		for _, record := range records {
+			opBuf := &bytes.Buffer{}
+			formatter.Format(record, opBuf)
+
+			partBuf := &bytes.Buffer{}
+			for _, part := range formatter.formatParts {
+				part.Format(record, partBuf)
+			}
+			if !bytes.Equal(opBuf.Bytes(), partBuf.Bytes()) {
+				t.Fatalf("fast Format(%q) = %q, formatParts = %q", format, opBuf.String(), partBuf.String())
+			}
+		}
+	}
+}
+
 func TestByteFormatPart(t *testing.T) {
 	buf := &bytes.Buffer{}
 	part := ByteFormatPart{'a'}

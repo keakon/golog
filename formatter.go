@@ -9,20 +9,34 @@ import (
 var unknownFile = []byte("???")
 
 var (
+	defaultFormat       = "[%l %D %T %s] %m"
+	timedRotatingFormat = "[%l %T %s] %m"
+	noSourceFormat      = "[%l %D %T] %m"
+
 	// DefaultFormatter is the default formatter
-	DefaultFormatter = ParseFormat("[%l %D %T %s] %m")
+	DefaultFormatter = ParseFormat(defaultFormat)
 	// TimedRotatingFormatter is a formatter for TimedRotatingFileWriter
-	TimedRotatingFormatter = ParseFormat("[%l %T %s] %m")
+	TimedRotatingFormatter = ParseFormat(timedRotatingFormat)
 )
 
 // A Formatter containing a sequence of FormatParts.
 type Formatter struct {
 	formatParts []FormatPart
+	fastPath    formatFastPath
 	// needsCaller reports whether the format contains a source directive (%s or %S),
 	// i.e. whether the caller's file and line are actually rendered. Loggers use it
 	// to skip the relatively expensive Caller() stack walk when no handler needs it.
 	needsCaller bool
 }
+
+type formatFastPath uint8
+
+const (
+	formatFastPathNone formatFastPath = iota
+	formatFastPathDefault
+	formatFastPathTimedRotating
+	formatFastPathNoSource
+)
 
 // NeedsCaller reports whether the formatter renders the source file/line,
 // i.e. whether its format string contains a %s or %S directive.
@@ -38,6 +52,7 @@ func ParseFormat(format string) (formatter *Formatter) {
 	formatter = &Formatter{}
 	formatter.findParts([]byte(format))
 	formatter.appendByte('\n')
+	formatter.fastPath = detectFormatFastPath(format)
 	return
 }
 
@@ -53,8 +68,32 @@ Supported format directives:
 	%S: full source code string (/path/filename.go:line)
 */
 func (f *Formatter) Format(r *Record, buf *bytes.Buffer) {
+	switch f.fastPath {
+	case formatFastPathDefault:
+		writeDefaultFormat(r, buf)
+		return
+	case formatFastPathTimedRotating:
+		writeTimedRotatingFormat(r, buf)
+		return
+	case formatFastPathNoSource:
+		writeNoSourceFormat(r, buf)
+		return
+	}
 	for _, part := range f.formatParts {
 		part.Format(r, buf)
+	}
+}
+
+func detectFormatFastPath(format string) formatFastPath {
+	switch format {
+	case defaultFormat:
+		return formatFastPathDefault
+	case timedRotatingFormat:
+		return formatFastPathTimedRotating
+	case noSourceFormat:
+		return formatFastPathNoSource
+	default:
+		return formatFastPathNone
 	}
 }
 
@@ -192,6 +231,10 @@ type LevelFormatPart struct{}
 
 // Format writes the short level name of the record to the buf.
 func (p *LevelFormatPart) Format(r *Record, buf *bytes.Buffer) {
+	writeLevel(r, buf)
+}
+
+func writeLevel(r *Record, buf *bytes.Buffer) {
 	if int(r.level) < len(levelNames) {
 		buf.WriteByte(levelNames[int(r.level)])
 	} else {
@@ -204,6 +247,10 @@ type TimeFormatPart struct{}
 
 // Format writes the time string of the record to the buf.
 func (p *TimeFormatPart) Format(r *Record, buf *bytes.Buffer) {
+	writeTime(r, buf)
+}
+
+func writeTime(r *Record, buf *bytes.Buffer) {
 	if r.time == "" {
 		hour, min, sec := r.tm.Clock()
 		buf.Write(uint2Bytes2(hour))
@@ -221,6 +268,10 @@ type DateFormatPart struct{}
 
 // Format writes the date string of the record to the buf.
 func (p *DateFormatPart) Format(r *Record, buf *bytes.Buffer) {
+	writeDate(r, buf)
+}
+
+func writeDate(r *Record, buf *bytes.Buffer) {
 	if r.date == "" {
 		year, mon, day := r.tm.Date()
 		buf.Write(uint2Bytes4(year))
@@ -233,11 +284,53 @@ func (p *DateFormatPart) Format(r *Record, buf *bytes.Buffer) {
 	}
 }
 
+func writeDefaultFormat(r *Record, buf *bytes.Buffer) {
+	buf.WriteByte('[')
+	writeLevel(r, buf)
+	buf.WriteByte(' ')
+	writeDate(r, buf)
+	buf.WriteByte(' ')
+	writeTime(r, buf)
+	buf.WriteByte(' ')
+	writeSource(r, buf)
+	buf.WriteString("] ")
+	writeMessage(r, buf)
+	buf.WriteByte('\n')
+}
+
+func writeTimedRotatingFormat(r *Record, buf *bytes.Buffer) {
+	buf.WriteByte('[')
+	writeLevel(r, buf)
+	buf.WriteByte(' ')
+	writeTime(r, buf)
+	buf.WriteByte(' ')
+	writeSource(r, buf)
+	buf.WriteString("] ")
+	writeMessage(r, buf)
+	buf.WriteByte('\n')
+}
+
+func writeNoSourceFormat(r *Record, buf *bytes.Buffer) {
+	buf.WriteByte('[')
+	writeLevel(r, buf)
+	buf.WriteByte(' ')
+	writeDate(r, buf)
+	buf.WriteByte(' ')
+	writeTime(r, buf)
+	buf.WriteString("] ")
+	writeMessage(r, buf)
+	buf.WriteByte('\n')
+}
+
 // SourceFormatPart is a FormatPart of the source code placeholder.
 type SourceFormatPart struct{}
 
 // Format writes the source file name and line number of the record to the buf.
 func (p *SourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
+	writeSource(r, buf)
+}
+
+func writeSource(r *Record, buf *bytes.Buffer) {
 	if r.line > 0 {
 		length := len(r.file)
 		if length > 0 {
@@ -268,6 +361,10 @@ type FullSourceFormatPart struct{}
 
 // Format writes the source file path and line number of the record to the buf.
 func (p *FullSourceFormatPart) Format(r *Record, buf *bytes.Buffer) {
+	writeFullSource(r, buf)
+}
+
+func writeFullSource(r *Record, buf *bytes.Buffer) {
 	if r.line > 0 {
 		buf.WriteString(r.file)
 		buf.WriteByte(':')
@@ -282,6 +379,10 @@ type MessageFormatPart struct{}
 
 // Format writes the formatted message with args to the buf.
 func (p *MessageFormatPart) Format(r *Record, buf *bytes.Buffer) {
+	writeMessage(r, buf)
+}
+
+func writeMessage(r *Record, buf *bytes.Buffer) {
 	if len(r.args) > 0 {
 		if r.message == "" {
 			fmt.Fprint(buf, r.args...)
