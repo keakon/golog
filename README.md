@@ -145,41 +145,45 @@ Configure loggers, handlers, and the package-level default logger before startin
 
 ### Platform
 
-go1.19.2 darwin/amd64
-cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+go1.26.3 darwin/arm64
+cpu: Apple M1 Pro
+
+Command:
+
+```
+go test -run '^$' -bench . -benchmem -count=6 ./log
+```
 
 ### Result
 
-| Name | Time/op | Time (x) | Alloc/op | allocs/op |
-| :--- | :---: | :---: | :---: | :---: |
-| DiscardLogger | 483ns ± 1% | 1.00 | 0B | 0 |
-| DiscardLoggerParallel | 89.0ns ± 6% | 1.00 | 0B | 0 |
-| DiscardLoggerWithoutTimer | 691ns ± 7% | 1.43 | 0B | 0 |
-| DiscardLoggerWithoutTimerParallel | 129ns ± 5% | 1.45 | 0B | 0 |
-| NopLog | 1.5ns ± 1% | 0.003 | 0B | 0 |
-| NopLogParallel | 0.22ns ± 3% | 0.002 | 0B | 0 |
-| MultiLevels | 2.77µs ± 7% | 5.73 | 0B | 0 |
-| MultiLevelsParallel | 532ns ± 15% | 5.98 | 0B | 0 |
-| BufferedFileLogger | 588ns ± 2% | 1.22 | 0B | 0 |
-| BufferedFileLoggerParallel | 241ns ± 1% | 2.71 | 0B | 0 |
-| ConcurrentFileLogger | 593ns ± 1% | 1.23 | 0B | 0 |
-| ConcurrentFileLoggerParallel | 101ns ± 2% | 1.13 | 0B | 0 |
-| | | | | |
-| DiscardZerolog | 2.24µs ± 1% | 4.64 | 280B | 3 |
-| DiscardZerologParallel | 408ns ± 10% | 4.58 | 280B | 3 |
-| DiscardZap | 2.13µs ± 0% | 4.41 | 272B | 5 |
-| DiscardZapParallel | 465ns ± 5% | 5.22 | 274B | 5 |
+| Name | Time/op | Alloc/op | Allocs/op |
+| :--- | :---: | :---: | :---: |
+| DiscardLogger | 206.9ns ± 1% | 0B | 0 |
+| DiscardLoggerNoSource | 51.22ns ± 3% | 0B | 0 |
+| DiscardLoggerParallel | 32.93ns ± 14% | 0B | 0 |
+| DiscardLoggerWithArgs | 301.6ns ± 1% | 40B | 2 |
+| DiscardLoggerWithArgsParallel | 66.89ns ± 7% | 40B | 2 |
+| DiscardLoggerWithoutTimer | 287.0ns ± 1% | 0B | 0 |
+| DiscardLoggerWithoutTimerParallel | 47.34ns ± 9% | 0B | 0 |
+| NopLog | 0.9649ns ± 1% | 0B | 0 |
+| NopLogParallel | 0.2687ns ± 2% | 0B | 0 |
+| MultiLevels | 1.408µs ± 3% | 0B | 0 |
+| MultiLevelsParallel | 167.0ns ± 17% | 0B | 0 |
+| BufferedFileLogger | 234.5ns ± 3% | 0B | 0 |
+| BufferedFileLoggerParallel | 307.5ns ± 2% | 0B | 0 |
+| ConcurrentFileLogger | 243.8ns ± 3% | 41B | 0 |
+| ConcurrentFileLoggerParallel | 119.5ns ± 5% | 8.5B | 0 |
 
-* DiscardLogger: writes logs to `ioutil.Discard`
+* DiscardLogger: writes logs to `io.Discard`
+* DiscardLoggerNoSource: same as above but using a format without caller (`%s`/`%S`)
+* DiscardLoggerWithArgs: same as DiscardLogger but formats `Infof("count=%d name=%s", i, "test")`
 * DiscardLoggerWithoutTimer: the same as above but without fast timer
 * NopLog: skips logs with lower level than the logger or handler
 * MultiLevels: writes 5 levels of logs to 5 levels handlers of a warning level logger
 * BufferedFileLogger: writes logs to a disk file
 * ConcurrentFileLogger: writes logs to a disk file with `ConcurrentFileWriter`
-* DiscardZerolog: writes logs to `ioutil.Discard` with [zerolog](https://github.com/rs/zerolog)
-* DiscardZap: writes logs to `ioutil.Discard` with [zap](https://github.com/uber-go/zap) using `zap.NewProductionEncoderConfig()`
 
-All the logs include 4 parts: level, time, caller and message. This is an example output of the benchmarks:
+Except for `DiscardLoggerNoSource`, all the logs include 4 parts: level, time, caller and message. This is an example output of the benchmarks:
 
 ```
 [I 2018-11-20 17:05:37 log_test:118] test

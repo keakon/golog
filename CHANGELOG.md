@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- `%s` source formatting now strips only the final extension. A base name with
+  earlier dots such as `my.module.go` rendered as `my`; it now renders as
+  `my.module`. Names without an extension are kept verbatim.
+- `ConcurrentFileWriter` no longer risks indexing past its shard slices if
+  `GOMAXPROCS` increases after the writer is created; shard selection now
+  defensively maps the runtime P id into the configured shard count.
+- File writer tests and benchmarks now use per-test temporary directories instead
+  of shared `os.TempDir()` paths, eliminating cross-test interference when suites
+  are run concurrently.
+
+### Changed
+
+- The logging methods now skip the `Caller()` stack walk when no handler's
+  formatter renders the source location (no `%s`/`%S` directive). `Caller()` is
+  the dominant cost of a discarded log call; on Apple M1 Pro / Go 1.26.3,
+  `BenchmarkDiscardLoggerNoSource` is ~51 ns/op vs ~207 ns/op for the default
+  source-rendering format.
+- The default formatter, timed rotating formatter, and common no-source formatter
+  now use direct fast paths instead of the generic `FormatPart` interface loop.
+  This removes the default-path overhead introduced by on-demand caller detection:
+  on Apple M1 Pro / Go 1.26.3, `BenchmarkDiscardLogger` is ~3% faster and
+  `BenchmarkMultiLevels` is ~7% faster than v0.3.0.
+- Buffers whose capacity exceeds 64 KiB are no longer returned to `bufPool`, so a
+  single oversized record can no longer pin that capacity for the process
+  lifetime; normal-sized buffers are still pooled.
+- `Record.message` and `Record.file` are now cleared before the record is
+  returned to `recordPool` (extending the existing `r.args = nil`), so a pooled
+  record no longer pins the previous message or file name in memory.
+- The `uintBytes2` / `uintBytes4` / `uintBytes` digit tables now point into three
+  contiguous backing arrays instead of ~1200 individually heap-allocated slices,
+  improving cache locality and reducing the number of GC-scanned objects. The
+  rendered bytes are identical.
+- `ConcurrentFileWriter` now allocates shard buffers on first write instead of
+  preallocating one `bufferSize` buffer per shard, and each shard's capacity is
+  `bufferSize/GOMAXPROCS` (floored at 4 KiB) so the total reserved memory stays
+  ~`bufferSize` regardless of core count. Closed writers also release their shard
+  buffers.
+
+### Added
+
+- `Formatter.NeedsCaller()` and `Logger.NeedsCaller()` report whether the source
+  location is rendered (i.e. whether `Caller()` is needed).
+- `BenchmarkDiscardLoggerNoSource` measures the logging hot path on a format
+  without a source directive, as a control for `BenchmarkDiscardLogger`.
+- CI gained a `lint` job that runs `gofmt`, `go vet`, and `staticcheck`.
+
 ## v0.3.0
 
 ### Fixed

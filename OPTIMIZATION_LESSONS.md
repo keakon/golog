@@ -145,6 +145,122 @@ hot-path data: the lock cost dwarfs the work.
 
 ---
 
+## Optimization G: on-demand `Caller()` (skip the stack walk when unused)
+
+`Caller()` resolves the file and line via a runtime stack walk. Optimization E
+established it is already near-optimal (the linkname + `//go:noescape` makes it
+zero-alloc) and that the cost is irreducible *if you call it*. So instead of
+making `Caller()` faster, avoid calling it when the result is discarded.
+
+A formatter only needs the source location when its format contains `%s`/`%S`.
+`Formatter.needsCaller` is set at parse time; `Logger.needsCaller` is the OR over
+its handlers' formatters; each level method calls `Caller(1)` only when the flag
+is set. The `log` package gains `*NoCaller` dispatch variants selected by
+`SetDefaultLogger`.
+
+**Result: much faster on source-less formats; source-rendering formats need a
+matching formatter fast path (Optimization J) to avoid paying the guard cost.**
+Measured on linux/amd64 (Intel Xeon Platinum 8559C, Go 1.24.4), `-count=8`:
+
+| Benchmark | Time/op | Notes |
+|---|---|---|
+| `DiscardLogger` (`%s`, renders source) | 200.8 ns | unchanged vs master (201.5 ns) |
+| `DiscardLoggerNoSource` (no `%s`/`%S`) | 59.09 ns | new fast path |
+| `Caller` (microbench) | 113.2 ns | unchanged — we skip it, not speed it up |
+
+The ~110 ns `Caller()` is ~54% of a `DiscardLogger` call, so removing it for
+source-less formats roughly cuts the per-call cost into a third. The extra
+configuration-time flag is cheap, but not free in a nanosecond-scale hot path;
+Optimization J adds common-format fast paths so source-rendering defaults also
+stay ahead of the old baseline.
+
+**Lesson:** the cheapest work is the work you don't do. When an expensive hot-path
+computation is already optimal, look for callers that discard its result and gate
+it behind a flag computed once at configuration time.
+
+---
+
+## Optimization H: bound pooled buffer capacity + fully reset pooled records
+
+Two `sync.Pool` memory-safety changes. (1) `bufPool` buffers whose capacity
+exceeds 64 KiB are dropped instead of pooled, so one megabyte-long message cannot
+grow a pooled buffer and pin that capacity for the process lifetime. (2) Clear
+`Record.message` and `Record.file` (alongside the existing `r.args = nil`,
+Optimization D) before returning a record to `recordPool`.
+
+**Result: neutral in benchmarks (within noise, 0 allocs).** The existing
+benchmarks log short, fixed messages, so neither the oversized-buffer guard nor
+the extra field clears have anything to reclaim — exactly as with Optimization D.
+
+**Lesson:** unbounded `sync.Pool` retention is a real leak in production (rare huge
+records permanently inflate pooled capacity) even when microbenchmarks show
+nothing. Keep defensive pool hygiene; the guard is a single `Cap()` comparison on
+a path already dominated by I/O.
+
+---
+
+## Optimization I: pack digit lookup tables into contiguous backing arrays
+
+`uintBytes2` / `uintBytes4` / `uintBytes` held one separately heap-allocated
+`[]byte` per entry (~1200 tiny slices). Point each table into one of three fixed
+backing arrays (`init()` writes digits in place via the shared `writeFixedUint`).
+The rendered bytes are identical.
+
+**Result: neutral on throughput (within noise); not a speed optimization.** The
+benefit is memory layout — contiguous digit bytes (better cache locality) and ~3
+GC-scanned objects instead of ~1200. It is kept because it is strictly better on
+allocation count and locality at zero output or speed cost.
+
+**Lesson:** "fewer, larger allocations" is worth doing for GC/locality hygiene
+even when wall-clock benchmarks are flat — but label it honestly as a memory-layout
+change, not a throughput win, and prove output is byte-identical.
+
+---
+
+## Optimization J: common formatter fast paths
+
+`Formatter.Format` historically iterated `[]FormatPart` and invoked an interface
+method for each part. A generic opcode prototype was not kept because the switch
+loop was sensitive to instruction layout and could regress the default path. The
+kept change is narrower: the three common formats (`DefaultFormatter`,
+`TimedRotatingFormatter`, and the benchmark no-source format) use direct write
+functions; custom formats still use the original `FormatPart` loop.
+
+**Result: default path regression removed; common paths improve.** Compared with
+v0.3.0 on Apple M1 Pro, Go 1.26.3, `-count=10`:
+
+| Benchmark | v0.3.0 | Current | Delta |
+|---|---:|---:|---:|
+| `DiscardLogger` | 210.2 ns | 203.4 ns | +3.28% |
+| `DiscardLoggerWithArgs` | 298.6 ns | 295.4 ns | +1.07% |
+| `MultiLevels` | 1.494 us | 1.382 us | +7.47% |
+| `DiscardLoggerNoSource` | n/a | 47.63 ns | new fast path |
+
+**Lesson:** avoid making every custom formatter pay for an optimisation that only
+helps a few hot formats. Fast-path the formats that dominate benchmarks and keep
+the generic path simple unless a generic opcode implementation proves itself on
+the target Go version and architecture.
+
+---
+
+## Robustness: `ConcurrentFileWriter` shards and buffers
+
+`ConcurrentFileWriter` used to create one shard per `GOMAXPROCS` and preallocate
+one `bufferSize` buffer per shard. On high-core machines that could reserve
+hundreds of megabytes at construction time. It also assumed `runtime.procPin()`
+would always return an id below the original `GOMAXPROCS`; if `GOMAXPROCS`
+increased later, shard indexing could panic.
+
+The writer now keeps one shard per `GOMAXPROCS`, maps the P id with modulo (so a
+later `GOMAXPROCS` increase can never index past the slices), lazily allocates shard
+buffers on first write, and releases buffers on close. Each shard buffer is sized
+`bufferSize/GOMAXPROCS` (floored at 4 KiB) rather than a full `bufferSize`, so the
+total reserved stays ~`bufferSize` no matter how many cores the machine has — there
+is no shard-count cap. This is primarily a memory and safety fix, not a throughput
+optimisation.
+
+---
+
 ## Summary
 
 | Optimization | Single-thread | Parallel | Verdict |
@@ -155,6 +271,11 @@ hot-path data: the lock cost dwarfs the work.
 | r.args = nil | neutral | neutral | Keep (defensive GC correctness) |
 | `runtime.Callers` (public) instead of linkname | -44% + 2 allocs | same | Reverted (linkname stays load-bearing) |
 | `atomic.Pointer[snapshot]` for FastTimer | neutral | neutral | Keep (race-safe, fixes torn read) |
+| on-demand `Caller()` (source-less formats) | **+70%** (201→59 ns) | n/a | Keep (paired with common formatter fast paths) |
+| bound bufPool + reset record fields | neutral | neutral | Keep (defensive pool hygiene) |
+| pack digit tables into backing arrays | neutral | neutral | Keep (GC/locality, byte-identical) |
+| common formatter fast paths | +3% | +7% multi-level | Keep (targeted; generic path unchanged) |
+| `ConcurrentFileWriter` lazy + budget-split shards | n/a | n/a | Keep (memory + panic prevention) |
 
 **Core principle: always measure before and after. Optimizations that "should" help
 can make things worse, especially when adding concurrency primitives to hot paths.**
