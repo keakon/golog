@@ -425,7 +425,10 @@ func TestBadWriter(t *testing.T) {
 	newLogger := NewLoggerWithWriter(w)
 	oldLogger := internalLogger
 	SetInternalLogger(newLogger)
-	defer SetInternalLogger(oldLogger)
+	defer func() {
+		SetInternalLogger(oldLogger)
+		newLogger.Close()
+	}()
 
 	l := NewLoggerWithWriter(&badWriter{})
 	l.Log(InfoLevel, "", 0, "test")
